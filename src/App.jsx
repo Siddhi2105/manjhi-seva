@@ -8,6 +8,7 @@ import Patients from "./pages/Patients";
 import PatientDetails from "./pages/PatientDetails";
 import AddHealthRecord from "./pages/AddHealthRecord";
 import Appointments from "./pages/Appointments";
+import SymptomChecker from "./pages/SymptomChecker";
 
 function App() {
   return (
@@ -21,6 +22,7 @@ function App() {
         <Route path="/patient/:id" element={<PatientDetails />} />
         <Route path="/add-health-record" element={<AddHealthRecord />} />
         <Route path="/appointments" element={<Appointments />} />
+        <Route path="/symptom-checker" element={<SymptomChecker />} />
       </Routes>
     </BrowserRouter>
   );
