@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 
 export default function Patients() {
@@ -62,6 +63,11 @@ export default function Patients() {
             <p>
               <strong>Phone:</strong> {patient.phone}
             </p>
+            <br />
+
+<Link to={`/patient/${patient.id}`}>
+  <button>View Details</button>
+</Link>
 
           </div>
         ))
