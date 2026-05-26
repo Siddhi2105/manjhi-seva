@@ -1,93 +1,168 @@
+import { Link, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { supabase } from "../supabaseClient";
-import { useNavigate } from "react-router-dom";
 
 export default function Dashboard() {
+
   const navigate = useNavigate();
-  const [profile, setProfile] = useState(null);
+
+  const [totalPatients, setTotalPatients] = useState(0);
+  const [totalAppointments, setTotalAppointments] = useState(0);
+  const [completedAppointments, setCompletedAppointments] = useState(0);
+  const [pendingAppointments, setPendingAppointments] = useState(0);
 
   useEffect(() => {
-    getProfile();
+    fetchDashboardData();
   }, []);
 
-  async function getProfile() {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+  async function fetchDashboardData() {
 
-    if (!user) {
-      navigate("/");
-      return;
-    }
+    // patients count
+    const { data: patients } = await supabase
+      .from("patients")
+      .select("*");
 
-    const { data, error } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("id", user.id)
-      .single();
+    // appointments count
+    const { data: appointments } = await supabase
+      .from("appointments")
+      .select("*");
 
-    if (error) {
-      alert(error.message);
-      return;
-    }
+    setTotalPatients(patients?.length || 0);
+    setTotalAppointments(appointments?.length || 0);
 
-    setProfile(data);
+    // completed appointments
+    const completed = appointments?.filter(
+      (a) => a.status === "Completed"
+    );
+
+    setCompletedAppointments(completed?.length || 0);
+
+    // pending appointments
+    const pending = appointments?.filter(
+      (a) => a.status === "Pending"
+    );
+
+    setPendingAppointments(pending?.length || 0);
   }
 
   async function handleLogout() {
+
     await supabase.auth.signOut();
+
+    alert("Logged out!");
+
     navigate("/");
   }
 
   return (
-    <div style={{ padding: "20px" }}>
-      <h1>Dashboard</h1>
+    <div style={{ padding: "30px" }}>
 
-      {profile && (
-        <div>
-          <h2>Welcome {profile.full_name}</h2>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+        }}
+      >
+        <h1>🏥 Manjhi Seva Dashboard</h1>
 
-          <p>
-            <strong>Role:</strong> {profile.role}
-          </p>
+        <button onClick={handleLogout} style={logoutBtn}>
+          Logout
+        </button>
+      </div>
 
-          <p>
-            <strong>Village:</strong> {profile.village}
-          </p>
-
-          <p>
-            <strong>Phone:</strong> {profile.phone}
-          </p>
-        </div>
-      )}
+      <p>Hospital Management System</p>
 
       <br />
 
-      <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
-        <button onClick={() => navigate("/add-patient")}>
-          Add Patient
-        </button>
+      {/* ANALYTICS CARDS */}
 
-        <button onClick={() => navigate("/patients")}>
-          View Patients
-        </button>
+      <div style={cardContainer}>
 
-        <button onClick={() => navigate("/add-health-record")}>
-          Add Health Record
-        </button>
+        <div style={card}>
+          <h2>{totalPatients}</h2>
+          <p>Total Patients</p>
+        </div>
 
-        <button onClick={() => navigate("/appointments")}>
-          Appointments
-        </button>
+        <div style={card}>
+          <h2>{totalAppointments}</h2>
+          <p>Total Appointments</p>
+        </div>
 
-        <button onClick={() => navigate("/symptom-checker")}>
-          AI Symptom Checker
-        </button>
+        <div
+          style={{
+            ...card,
+            backgroundColor: "#d1e7dd",
+          }}
+        >
+          <h2>{completedAppointments}</h2>
+          <p>Completed</p>
+        </div>
+
+        <div
+          style={{
+            ...card,
+            backgroundColor: "#ffe69c",
+          }}
+        >
+          <h2>{pendingAppointments}</h2>
+          <p>Pending</p>
+        </div>
+
       </div>
 
       <br /><br />
 
-      <button onClick={handleLogout}>Logout</button>
+      {/* NAVIGATION BUTTONS */}
+
+      <div style={{ display: "flex", gap: "20px", flexWrap: "wrap" }}>
+
+        <Link to="/patients">
+          <button style={btn}>Patients</button>
+        </Link>
+
+        <Link to="/add-patient">
+          <button style={btn}>Add Patient</button>
+        </Link>
+
+        <Link to="/appointments">
+          <button style={btn}>Appointments</button>
+        </Link>
+
+        <Link to="/symptom-checker">
+          <button style={btn}>AI Symptom Checker</button>
+        </Link>
+
+      </div>
     </div>
   );
 }
+
+/* STYLES */
+
+const btn = {
+  padding: "20px",
+  fontSize: "18px",
+  cursor: "pointer",
+};
+
+const logoutBtn = {
+  padding: "10px 16px",
+  backgroundColor: "red",
+  color: "white",
+  border: "none",
+  cursor: "pointer",
+};
+
+const cardContainer = {
+  display: "flex",
+  gap: "20px",
+  flexWrap: "wrap",
+};
+
+const card = {
+  backgroundColor: "#eee",
+  padding: "25px",
+  borderRadius: "10px",
+  minWidth: "220px",
+};

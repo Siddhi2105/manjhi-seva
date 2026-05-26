@@ -1,31 +1,66 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { supabase } from "./supabaseClient";
 
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import Dashboard from "./pages/Dashboard";
-import AddPatient from "./pages/AddPatient";
 import Patients from "./pages/Patients";
+import AddPatient from "./pages/AddPatient";
 import PatientDetails from "./pages/PatientDetails";
 import AddHealthRecord from "./pages/AddHealthRecord";
-import Appointments from "./pages/Appointments";
 import SymptomChecker from "./pages/SymptomChecker";
+import Appointments from "./pages/Appointments";
+import BookAppointment from "./pages/BookAppointment";
+import EditPatient from "./pages/EditPatient";
 
-function App() {
+export default function App() {
+  const [session, setSession] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  // 🔐 CHECK USER LOGIN STATUS
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      setSession(data.session);
+      setLoading(false);
+    });
+
+    supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
+  }, []);
+
+  // ⏳ Wait until Supabase checks login
+  if (loading) return <h2>Loading...</h2>;
+
   return (
     <BrowserRouter>
       <Routes>
+
+        {/* 🔴 DEFAULT PAGE = LOGIN */}
         <Route path="/" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
-        <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/add-patient" element={<AddPatient />} />
-        <Route path="/patients" element={<Patients />} />
-        <Route path="/patient/:id" element={<PatientDetails />} />
-        <Route path="/add-health-record" element={<AddHealthRecord />} />
-        <Route path="/appointments" element={<Appointments />} />
-        <Route path="/symptom-checker" element={<SymptomChecker />} />
+
+        {/* 🔐 PROTECTED ROUTES */}
+        {session ? (
+          <>
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/patients" element={<Patients />} />
+            <Route path="/add-patient" element={<AddPatient />} />
+            <Route path="/patient/:id" element={<PatientDetails />} />
+            <Route path="/add-health-record" element={<AddHealthRecord />} />
+            <Route path="/symptom-checker" element={<SymptomChecker />} />
+            <Route path="/appointments" element={<Appointments />} />
+            <Route path="/book-appointment" element={<BookAppointment />} />
+            <Route path="/edit-patient/:id" element={<EditPatient />} />
+          </>
+        ) : (
+          // ❌ If not logged in → redirect to login
+          <Route path="*" element={<Navigate to="/" />} />
+          
+        )}
+
       </Routes>
     </BrowserRouter>
   );
 }
-
-export default App;

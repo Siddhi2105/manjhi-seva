@@ -1,129 +1,244 @@
-import { useState } from "react";
-import { useSearchParams, useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
 import { supabase } from "../supabaseClient";
 
 export default function Appointments() {
 
-  const navigate = useNavigate();
+  const [appointments, setAppointments] = useState([]);
+  const [searchTerm, setSearchTerm] = useState("");
 
-  const [searchParams] = useSearchParams();
+  // runs automatically when page opens
+  useEffect(() => {
+    fetchAppointments();
+  }, []);
 
-  const patientId = searchParams.get("patient");
+  // fetch all appointments from supabase
+  async function fetchAppointments() {
 
-  const [department, setDepartment] = useState("");
-  const [doctorName, setDoctorName] = useState("");
-  const [appointmentDate, setAppointmentDate] = useState("");
-  const [appointmentTime, setAppointmentTime] = useState("");
-
-  // Safety check
-  if (!patientId) {
-    return (
-      <div style={{ padding: "20px" }}>
-        <h1>No Patient Selected</h1>
-
-        <p>
-          Please go to Patients List and select a patient first.
-        </p>
-
-        <button onClick={() => navigate("/patients")}>
-          Go to Patients
-        </button>
-      </div>
-    );
-  }
-
-  async function handleSubmit(e) {
-    e.preventDefault();
-
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from("appointments")
-      .insert([
-        {
-          patient_id: patientId,
-          department,
-          doctor_name: doctorName,
-          appointment_date: appointmentDate,
-          appointment_time: appointmentTime,
-          status: "Booked",
-        },
-      ]);
+      .select("*")
+      .order("appointment_date", { ascending: false });
 
     if (error) {
       alert(error.message);
       return;
     }
 
-    alert("Appointment booked successfully!");
-
-    navigate(`/patient/${patientId}`);
+    setAppointments(data);
   }
 
+  // delete appointment
+  async function deleteAppointment(id) {
+
+    const confirmDelete = window.confirm(
+      "Delete this appointment?"
+    );
+
+    if (!confirmDelete) return;
+
+    const { error } = await supabase
+      .from("appointments")
+      .delete()
+      .eq("id", id);
+
+    if (error) {
+      alert(error.message);
+      return;
+    }
+
+    alert("Appointment deleted");
+
+    fetchAppointments();
+  }
+
+  // update appointment status
+  async function updateStatus(id, newStatus) {
+
+    const { error } = await supabase
+      .from("appointments")
+      .update({
+        status: newStatus,
+      })
+      .eq("id", id);
+
+    if (error) {
+      alert(error.message);
+      return;
+    }
+
+    fetchAppointments();
+  }
+
+  // search filter
+  const filteredAppointments = appointments.filter((appointment) =>
+    appointment.doctor_name
+      ?.toLowerCase()
+      .includes(searchTerm.toLowerCase())
+  );
+
   return (
-    <div style={{ padding: "20px" }}>
-      <h1>Book Appointment</h1>
+    <div style={{ padding: "30px" }}>
 
-      <form onSubmit={handleSubmit}>
+      <h1>📅 Appointments Dashboard</h1>
 
-        <select
-          value={department}
-          onChange={(e) => setDepartment(e.target.value)}
-          required
-        >
-          <option value="">Select Department</option>
+      <br />
 
-          <option value="General Medicine">
-            General Medicine
-          </option>
+      <input
+        type="text"
+        placeholder="Search by doctor name..."
+        value={searchTerm}
+        onChange={(e) => setSearchTerm(e.target.value)}
+        style={{
+          padding: "10px",
+          width: "300px",
+        }}
+      />
 
-          <option value="Pediatrics">
-            Pediatrics
-          </option>
+      <br /><br />
 
-          <option value="Women Health">
-            Women Health
-          </option>
+      <table style={table}>
 
-          <option value="Cardiology">
-            Cardiology
-          </option>
+        <thead>
+          <tr style={{ backgroundColor: "#eee" }}>
+            <th style={th}>Department</th>
+            <th style={th}>Doctor</th>
+            <th style={th}>Date</th>
+            <th style={th}>Time</th>
+            <th style={th}>Reason</th>
+            <th style={th}>Status</th>
+            <th style={th}>Actions</th>
+          </tr>
+        </thead>
 
-        </select>
+        <tbody>
 
-        <br /><br />
+          {filteredAppointments.length === 0 ? (
 
-        <input
-          type="text"
-          placeholder="Doctor Name"
-          value={doctorName}
-          onChange={(e) => setDoctorName(e.target.value)}
-          required
-        />
+            <tr>
+              <td
+                colSpan="7"
+                style={{
+                  textAlign: "center",
+                  padding: "20px",
+                }}
+              >
+                No appointments found
+              </td>
+            </tr>
 
-        <br /><br />
+          ) : (
 
-        <input
-          type="date"
-          value={appointmentDate}
-          onChange={(e) => setAppointmentDate(e.target.value)}
-          required
-        />
+            filteredAppointments.map((appointment) => (
 
-        <br /><br />
+              <tr key={appointment.id}>
 
-        <input
-          type="time"
-          value={appointmentTime}
-          onChange={(e) => setAppointmentTime(e.target.value)}
-          required
-        />
+                <td style={td}>
+                  {appointment.department}
+                </td>
 
-        <br /><br />
+                <td style={td}>
+                  {appointment.doctor_name}
+                </td>
 
-        <button type="submit">
-          Book Appointment
-        </button>
+                <td style={td}>
+                  {appointment.appointment_date}
+                </td>
 
-      </form>
+                <td style={td}>
+                  {appointment.appointment_time}
+                </td>
+
+                <td style={td}>
+                  {appointment.reason}
+                </td>
+
+                <td
+  style={{
+    ...td,
+
+   backgroundColor:
+  appointment.status === "Pending"
+    ? "#ffe69c"
+    : appointment.status === "Approved"
+    ? "#cfe2ff"
+    : appointment.status === "Completed"
+    ? "#d1e7dd"
+    : appointment.status === "Cancelled"
+    ? "#f8d7da"
+    : "white",
+
+    color:
+  appointment.status === "Pending"
+    ? "#7a4b00"
+    : appointment.status === "Approved"
+    ? "#084298"
+    : appointment.status === "Completed"
+    ? "#0f5132"
+    : appointment.status === "Cancelled"
+    ? "#842029"
+    : "black",
+  }}
+>
+
+  <select
+    value={appointment.status}
+    onChange={(e) =>
+      updateStatus(
+        appointment.id,
+        e.target.value
+      )
+    }
+  >
+    <option>Pending</option>
+    <option>Approved</option>
+    <option>Completed</option>
+    <option>Cancelled</option>
+  </select>
+
+</td>
+
+                <td style={td}>
+
+                  <button
+                    style={deleteBtn}
+                    onClick={() =>
+                      deleteAppointment(appointment.id)
+                    }
+                  >
+                    Delete
+                  </button>
+
+                </td>
+
+              </tr>
+            ))
+          )}
+
+        </tbody>
+      </table>
     </div>
   );
 }
+
+const table = {
+  width: "100%",
+  borderCollapse: "collapse",
+};
+
+const th = {
+  border: "1px solid #ccc",
+  padding: "12px",
+};
+
+const td = {
+  border: "1px solid #ccc",
+  padding: "10px",
+};
+
+const deleteBtn = {
+  backgroundColor: "red",
+  color: "white",
+  border: "none",
+  padding: "8px 12px",
+  cursor: "pointer",
+};
