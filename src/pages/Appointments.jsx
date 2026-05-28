@@ -1,39 +1,54 @@
-import { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 
-export default function Appointments() {
+// Status color helper
+function statusColor(status) {
+  const colors = {
+    Booked: "#2563eb",
+    Pending: "#d97706",
+    Completed: "#16a34a",
+    Cancelled: "#dc2626",
+  };
+  return colors[status] || "#6b7280";
+}
 
+export default function AppointmentsList() {
+  const navigate = useNavigate();
   const [appointments, setAppointments] = useState([]);
-  const [searchTerm, setSearchTerm] = useState("");
+  const [loading, setLoading] = useState(true);
 
-  // runs automatically when page opens
   useEffect(() => {
     fetchAppointments();
   }, []);
 
-  // fetch all appointments from supabase
   async function fetchAppointments() {
-
     const { data, error } = await supabase
       .from("appointments")
-      .select("*")
+      .select(`
+        id,
+        appointment_date,
+        appointment_time,
+        department,
+        reason,
+        status,
+        created_at,
+        patients ( full_name ),
+        doctors ( doctor_name, specialization )
+      `)
       .order("appointment_date", { ascending: false });
 
     if (error) {
-      alert(error.message);
-      return;
+      console.error("Error fetching appointments:", error);
+    } else {
+      setAppointments(data);
     }
 
-    setAppointments(data);
+    setLoading(false);
   }
 
-  // delete appointment
-  async function deleteAppointment(id) {
-
-    const confirmDelete = window.confirm(
-      "Delete this appointment?"
-    );
-
+  async function handleDelete(id) {
+    const confirmDelete = window.confirm("Are you sure you want to delete this appointment?");
     if (!confirmDelete) return;
 
     const { error } = await supabase
@@ -41,204 +56,99 @@ export default function Appointments() {
       .delete()
       .eq("id", id);
 
-    if (error) {
-      alert(error.message);
-      return;
+    if (!error) {
+      setAppointments(appointments.filter((a) => a.id !== id));
     }
-
-    alert("Appointment deleted");
-
-    fetchAppointments();
   }
 
-  // update appointment status
-  async function updateStatus(id, newStatus) {
-
-    const { error } = await supabase
-      .from("appointments")
-      .update({
-        status: newStatus,
-      })
-      .eq("id", id);
-
-    if (error) {
-      alert(error.message);
-      return;
-    }
-
-    fetchAppointments();
-  }
-
-  // search filter
-  const filteredAppointments = appointments.filter((appointment) =>
-    appointment.doctor_name
-      ?.toLowerCase()
-      .includes(searchTerm.toLowerCase())
-  );
+  if (loading) return <p>Loading appointments...</p>;
 
   return (
-    <div style={{ padding: "30px" }}>
+    <div style={{ padding: "2rem" }}>
+      <h2>Appointments</h2>
+      <p style={{ color: "#6b7280" }}>{appointments.length} appointments found</p>
 
-      <h1>📅 Appointments Dashboard</h1>
-
-      <br />
-
-      <input
-        type="text"
-        placeholder="Search by doctor name..."
-        value={searchTerm}
-        onChange={(e) => setSearchTerm(e.target.value)}
-        style={{
-          padding: "10px",
-          width: "300px",
-        }}
-      />
-
-      <br /><br />
-
-      <table style={table}>
-
+      <table style={{ width: "100%", borderCollapse: "collapse", marginTop: "1rem" }}>
         <thead>
-          <tr style={{ backgroundColor: "#eee" }}>
-            <th style={th}>Department</th>
-            <th style={th}>Doctor</th>
-            <th style={th}>Date</th>
-            <th style={th}>Time</th>
-            <th style={th}>Reason</th>
-            <th style={th}>Status</th>
-            <th style={th}>Actions</th>
+          <tr style={{ borderBottom: "2px solid #e5e7eb", textAlign: "left" }}>
+            <th style={{ padding: "8px" }}>Patient</th>
+            <th style={{ padding: "8px" }}>Doctor</th>
+            <th style={{ padding: "8px" }}>Department</th>
+            <th style={{ padding: "8px" }}>Date</th>
+            <th style={{ padding: "8px" }}>Time</th>
+            <th style={{ padding: "8px" }}>Status</th>
+            <th style={{ padding: "8px" }}>Actions</th>
           </tr>
         </thead>
-
         <tbody>
+          {appointments.map((appt) => (
+            <tr key={appt.id} style={{ borderBottom: "1px solid #f3f4f6" }}>
 
-          {filteredAppointments.length === 0 ? (
+              <td style={{ padding: "8px" }}>
+                {appt.patients?.full_name || "Unknown patient"}
+              </td>
 
-            <tr>
-              <td
-                colSpan="7"
-                style={{
-                  textAlign: "center",
-                  padding: "20px",
-                }}
-              >
-                No appointments found
+              <td style={{ padding: "8px" }}>
+                <div>{appt.doctors?.doctor_name || "Unknown doctor"}</div>
+                <div style={{ fontSize: "12px", color: "#6b7280" }}>
+                  {appt.doctors?.specialization}
+                </div>
+              </td>
+
+              <td style={{ padding: "8px" }}>{appt.department}</td>
+              <td style={{ padding: "8px" }}>{appt.appointment_date}</td>
+              <td style={{ padding: "8px" }}>{appt.appointment_time}</td>
+
+              <td style={{ padding: "8px" }}>
+                <span style={{
+                  background: statusColor(appt.status),
+                  color: "white",
+                  padding: "2px 10px",
+                  borderRadius: "12px",
+                  fontSize: "12px",
+                }}>
+                  {appt.status}
+                </span>
+              </td>
+
+              {/* ACTIONS */}
+              <td style={{ padding: "8px", display: "flex", gap: "8px" }}>
+
+                {/* EDIT BUTTON */}
+                <button
+                  onClick={() => navigate(`/appointments/edit/${appt.id}`)}
+                  style={{
+                    padding: "4px 12px",
+                    backgroundColor: "#f59e0b",
+                    color: "white",
+                    border: "none",
+                    borderRadius: "4px",
+                    cursor: "pointer",
+                  }}
+                >
+                  Edit
+                </button>
+
+                {/* DELETE BUTTON */}
+                <button
+                  onClick={() => handleDelete(appt.id)}
+                  style={{
+                    padding: "4px 12px",
+                    backgroundColor: "red",
+                    color: "white",
+                    border: "none",
+                    borderRadius: "4px",
+                    cursor: "pointer",
+                  }}
+                >
+                  Delete
+                </button>
+
               </td>
             </tr>
-
-          ) : (
-
-            filteredAppointments.map((appointment) => (
-
-              <tr key={appointment.id}>
-
-                <td style={td}>
-                  {appointment.department}
-                </td>
-
-                <td style={td}>
-                  {appointment.doctor_name}
-                </td>
-
-                <td style={td}>
-                  {appointment.appointment_date}
-                </td>
-
-                <td style={td}>
-                  {appointment.appointment_time}
-                </td>
-
-                <td style={td}>
-                  {appointment.reason}
-                </td>
-
-                <td
-  style={{
-    ...td,
-
-   backgroundColor:
-  appointment.status === "Pending"
-    ? "#ffe69c"
-    : appointment.status === "Approved"
-    ? "#cfe2ff"
-    : appointment.status === "Completed"
-    ? "#d1e7dd"
-    : appointment.status === "Cancelled"
-    ? "#f8d7da"
-    : "white",
-
-    color:
-  appointment.status === "Pending"
-    ? "#7a4b00"
-    : appointment.status === "Approved"
-    ? "#084298"
-    : appointment.status === "Completed"
-    ? "#0f5132"
-    : appointment.status === "Cancelled"
-    ? "#842029"
-    : "black",
-  }}
->
-
-  <select
-    value={appointment.status}
-    onChange={(e) =>
-      updateStatus(
-        appointment.id,
-        e.target.value
-      )
-    }
-  >
-    <option>Pending</option>
-    <option>Approved</option>
-    <option>Completed</option>
-    <option>Cancelled</option>
-  </select>
-
-</td>
-
-                <td style={td}>
-
-                  <button
-                    style={deleteBtn}
-                    onClick={() =>
-                      deleteAppointment(appointment.id)
-                    }
-                  >
-                    Delete
-                  </button>
-
-                </td>
-
-              </tr>
-            ))
-          )}
-
+          ))}
         </tbody>
       </table>
     </div>
   );
 }
-
-const table = {
-  width: "100%",
-  borderCollapse: "collapse",
-};
-
-const th = {
-  border: "1px solid #ccc",
-  padding: "12px",
-};
-
-const td = {
-  border: "1px solid #ccc",
-  padding: "10px",
-};
-
-const deleteBtn = {
-  backgroundColor: "red",
-  color: "white",
-  border: "none",
-  padding: "8px 12px",
-  cursor: "pointer",
-};

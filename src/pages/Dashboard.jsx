@@ -116,6 +116,9 @@ export default function Dashboard() {
       {/* NAVIGATION BUTTONS */}
 
       <div style={{ display: "flex", gap: "20px", flexWrap: "wrap" }}>
+        <Link to="/doctors">
+  <button style={btn}>Doctors</button>
+</Link>
 
         <Link to="/patients">
           <button style={btn}>Patients</button>

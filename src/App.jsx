@@ -13,6 +13,12 @@ import SymptomChecker from "./pages/SymptomChecker";
 import Appointments from "./pages/Appointments";
 import BookAppointment from "./pages/BookAppointment";
 import EditPatient from "./pages/EditPatient";
+import Doctors from "./pages/Doctors";
+import AddDoctor from "./pages/AddDoctor";
+import DoctorsDetails from "./pages/DoctorsDetails";
+import EditDoctor from "./pages/EditDoctor";
+import EditAppointment from "./pages/EditAppointment";
+
 
 export default function App() {
   const [session, setSession] = useState(null);
@@ -53,6 +59,12 @@ export default function App() {
             <Route path="/appointments" element={<Appointments />} />
             <Route path="/book-appointment" element={<BookAppointment />} />
             <Route path="/edit-patient/:id" element={<EditPatient />} />
+            <Route path="/doctors" element={<Doctors />} />
+            <Route path="/add-doctor" element={<AddDoctor />} />
+            <Route path="/doctor/:id" element={<DoctorsDetails />} />
+            <Route path="/doctors/edit/:id" element={<EditDoctor />} />
+            <Route path="/appointments/edit/:id" element={<EditAppointment />} />
+
           </>
         ) : (
           // ❌ If not logged in → redirect to login

@@ -1,154 +1,182 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "../supabaseClient";
-import { useSearchParams, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 
 export default function BookAppointment() {
-  const [searchParams] = useSearchParams();
-  const patientId = searchParams.get("patient");
   const navigate = useNavigate();
 
-  const [department, setDepartment] = useState("");
-  const [doctorName, setDoctorName] = useState("");
-  const [appointmentDate, setAppointmentDate] = useState("");
-  const [appointmentTime, setAppointmentTime] = useState("");
-  const [reason, setReason] = useState("");
-  const [loading, setLoading] = useState(false);
+  // Form state
+  const [form, setForm] = useState({
+    patient_id: "",
+    department: "",
+    doctor_id: "",       // ← was doctor_name, now doctor_id
+    appointment_date: "",
+    appointment_time: "",
+    reason: "",
+    status: "Booked",
+  });
 
-  async function bookAppointment(e) {
+  // Dropdown data
+  const [doctors, setDoctors] = useState([]);
+  const [patients, setPatients] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState("");
+
+  // Fetch doctors and patients when page loads
+  useEffect(() => {
+    fetchDoctors();
+    fetchPatients();
+  }, []);
+
+  async function fetchDoctors() {
+    const { data, error } = await supabase
+      .from("doctors")
+      .select("id, doctor_name, specialization")
+      .order("doctor_name");
+
+    if (error) {
+      console.error("Error fetching doctors:", error);
+    } else {
+      setDoctors(data);
+    }
+  }
+
+  async function fetchPatients() {
+    const { data, error } = await supabase
+      .from("patients")
+      .select("id, full_name")
+      .order("full_name");
+
+    if (error) {
+      console.error("Error fetching patients:", error);
+    } else {
+      setPatients(data);
+    }
+  }
+
+  function handleChange(e) {
+    setForm({ ...form, [e.target.name]: e.target.value });
+  }
+
+  async function handleSubmit(e) {
     e.preventDefault();
     setLoading(true);
+    setMessage("");
 
-    const { error } = await supabase.from("appointments").insert([
-      {
-        patient_id: patientId,
-        department: department,
-        doctor_name: doctorName,
-        appointment_date: appointmentDate,
-        appointment_time: appointmentTime,
-        reason: reason,
-        status: "Booked",
-      },
-    ]);
+    const { error } = await supabase
+      .from("appointments")
+      .insert([form]);   // form now contains doctor_id, not doctor_name
 
     setLoading(false);
 
     if (error) {
-      alert(error.message);
-      return;
+      setMessage("Error booking appointment: " + error.message);
+    } else {
+      setMessage("Appointment booked successfully!");
+      setTimeout(() => navigate("/appointments"), 1500);
     }
-
-    alert("Appointment booked successfully!");
-    navigate("/appointments");
   }
 
   return (
-    <div style={styles.page}>
-      <div style={styles.card}>
-        <h1 style={styles.title}>Book Appointment</h1>
-        <p style={styles.subtitle}>Fill details to schedule a visit</p>
+    <div style={{ maxWidth: "600px", margin: "2rem auto", padding: "0 1rem" }}>
+      <h2>Book Appointment</h2>
 
-        <form onSubmit={bookAppointment} style={styles.form}>
-          {/* Department */}
-          <div style={styles.inputGroup}>
-            <label>Department</label>
-            <select
-              required
-              value={department}
-              onChange={(e) => setDepartment(e.target.value)}
-            >
-              <option value="">Select Department</option>
-              <option>General</option>
-              <option>Cardiology</option>
-              <option>Dermatology</option>
-              <option>Orthopedic</option>
-              <option>ENT</option>
-              <option>Neurology</option>
-            </select>
-          </div>
+      {message && (
+        <p style={{ color: message.includes("Error") ? "red" : "green" }}>
+          {message}
+        </p>
+      )}
 
-          {/* Doctor */}
-          <div style={styles.inputGroup}>
-            <label>Doctor Name</label>
-            <input
-              type="text"
-              placeholder="Dr. Sharma"
-              required
-              value={doctorName}
-              onChange={(e) => setDoctorName(e.target.value)}
-            />
-          </div>
+      <form onSubmit={handleSubmit}>
 
-          {/* Date + Time */}
-          <div style={styles.row}>
-            <div style={styles.inputGroup}>
-              <label>Appointment Date</label>
-              <input
-                type="date"
-                required
-                value={appointmentDate}
-                onChange={(e) => setAppointmentDate(e.target.value)}
-              />
-            </div>
+        {/* Patient dropdown — also relational now */}
+        <div style={{ marginBottom: "1rem" }}>
+          <label>Patient</label>
+          <select
+            name="patient_id"
+            value={form.patient_id}
+            onChange={handleChange}
+            required
+            style={{ display: "block", width: "100%", padding: "8px", marginTop: "4px" }}
+          >
+            <option value="">Select a patient</option>
+            {patients.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.full_name}
+              </option>
+            ))}
+          </select>
+        </div>
 
-            <div style={styles.inputGroup}>
-              <label>Appointment Time</label>
-              <input
-                type="time"
-                required
-                value={appointmentTime}
-                onChange={(e) => setAppointmentTime(e.target.value)}
-              />
-            </div>
-          </div>
+        {/* Doctor dropdown — now stores doctor_id */}
+        <div style={{ marginBottom: "1rem" }}>
+          <label>Doctor</label>
+          <select
+            name="doctor_id"
+            value={form.doctor_id}
+            onChange={handleChange}
+            required
+            style={{ display: "block", width: "100%", padding: "8px", marginTop: "4px" }}
+          >
+            <option value="">Select a doctor</option>
+            {doctors.map((d) => (
+              <option key={d.id} value={d.id}>
+                {d.doctor_name} — {d.specialization}
+              </option>
+            ))}
+          </select>
+        </div>
 
-          {/* Reason */}
-          <div style={styles.inputGroup}>
-            <label>Reason / Symptoms</label>
-            <textarea
-              placeholder="Describe the problem..."
-              required
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-            />
-          </div>
+        <div style={{ marginBottom: "1rem" }}>
+          <label>Department</label>
+          <input
+            name="department"
+            value={form.department}
+            onChange={handleChange}
+            required
+            style={{ display: "block", width: "100%", padding: "8px", marginTop: "4px" }}
+          />
+        </div>
 
-          <button style={styles.button} disabled={loading}>
-            {loading ? "Booking..." : "Confirm Appointment"}
-          </button>
-        </form>
-      </div>
+        <div style={{ marginBottom: "1rem" }}>
+          <label>Date</label>
+          <input
+            type="date"
+            name="appointment_date"
+            value={form.appointment_date}
+            onChange={handleChange}
+            required
+            style={{ display: "block", width: "100%", padding: "8px", marginTop: "4px" }}
+          />
+        </div>
+
+        <div style={{ marginBottom: "1rem" }}>
+          <label>Time</label>
+          <input
+            type="time"
+            name="appointment_time"
+            value={form.appointment_time}
+            onChange={handleChange}
+            required
+            style={{ display: "block", width: "100%", padding: "8px", marginTop: "4px" }}
+          />
+        </div>
+
+        <div style={{ marginBottom: "1rem" }}>
+          <label>Reason</label>
+          <textarea
+            name="reason"
+            value={form.reason}
+            onChange={handleChange}
+            rows={3}
+            style={{ display: "block", width: "100%", padding: "8px", marginTop: "4px" }}
+          />
+        </div>
+
+        <button type="submit" disabled={loading}>
+          {loading ? "Booking..." : "Book Appointment"}
+        </button>
+      </form>
     </div>
   );
 }
-
-const styles = {
-  page: {
-    background: "#f4f7fb",
-    height: "100vh",
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  card: {
-    background: "white",
-    padding: "40px",
-    borderRadius: "12px",
-    width: "420px",
-    boxShadow: "0 8px 20px rgba(0,0,0,0.1)",
-  },
-  title: { marginBottom: "5px" },
-  subtitle: { color: "gray", marginBottom: "25px" },
-  form: { display: "flex", flexDirection: "column", gap: "18px" },
-  inputGroup: { display: "flex", flexDirection: "column", gap: "6px" },
-  row: { display: "flex", gap: "15px" },
-  button: {
-    marginTop: "10px",
-    padding: "12px",
-    background: "#2b7cff",
-    color: "white",
-    border: "none",
-    borderRadius: "8px",
-    fontSize: "16px",
-    cursor: "pointer",
-  },
-};
