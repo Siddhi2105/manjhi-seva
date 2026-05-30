@@ -39,7 +39,7 @@ export default function AddDoctor() {
   return (
     <div style={{ padding: "30px" }}>
 
-      <h1>👨‍⚕️ Add Doctor</h1>
+      <h1>Add Doctor</h1>
 
       <form
         onSubmit={handleAddDoctor}

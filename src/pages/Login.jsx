@@ -26,29 +26,36 @@ export default function Login() {
   }
 
   return (
-    <div style={{ padding: "20px" }}>
-      <h1>Login</h1>
+    <div className="page-shell">
+      <h1 className="page-title">Welcome back</h1>
+      <p className="page-subtitle">Sign in to access the hospital management dashboard.</p>
 
-      <form onSubmit={handleLogin}>
-        <input
-          type="email"
-          placeholder="Email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-        />
+      <form onSubmit={handleLogin} className="form-card">
+        <div className="form-group">
+          <label htmlFor="email">Email</label>
+          <input
+            id="email"
+            type="email"
+            placeholder="Email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+        </div>
 
-        <br /><br />
+        <div className="form-group">
+          <label htmlFor="password">Password</label>
+          <input
+            id="password"
+            type="password"
+            placeholder="Password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+        </div>
 
-        <input
-          type="password"
-          placeholder="Password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-        />
-
-        <br /><br />
-
-        <button type="submit">Login</button>
+        <div className="form-actions">
+          <button type="submit">Login</button>
+        </div>
       </form>
 
       <p>

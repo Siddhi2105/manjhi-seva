@@ -24,7 +24,7 @@ export default function Patients() {
     setPatients(data);
   }
 
-  // 🗑️ DELETE PATIENT FROM SUPABASE
+  // delete patient from supabase
   async function deletePatient(id) {
     const confirmDelete = window.confirm("Delete this patient?");
     if (!confirmDelete) return;
@@ -48,125 +48,76 @@ export default function Patients() {
   );
 
   return (
-    <div style={{ padding: "30px" }}>
-      <h1>👨‍⚕️ Patients List</h1>
+    <div className="page-shell">
+      <div className="page-header">
+        <div>
+          <h1 className="page-title">Patients</h1>
+          <p className="page-subtitle">Manage patient records, search quickly, and keep your care team organized.</p>
+        </div>
 
-      <br />
+        <Link to="/add-patient">
+          <button type="button">+ Add New Patient</button>
+        </Link>
+      </div>
 
-      <Link to="/add-patient">
-        <button style={addBtn}>+ Add New Patient</button>
-      </Link>
+      <div className="form-group" style={{ marginTop: "1.5rem" }}>
+        <input
+          type="text"
+          placeholder="Search patient by name..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+        />
+      </div>
 
-      <br /><br />
-
-      <input
-        type="text"
-        placeholder="🔍 Search patient by name..."
-        value={searchTerm}
-        onChange={(e) => setSearchTerm(e.target.value)}
-        style={searchBox}
-      />
-
-      <br /><br />
-
-      <table style={table}>
-        <thead>
-          <tr style={{ backgroundColor: "#eee" }}>
-            <th style={th}>Name</th>
-            <th style={th}>Age</th>
-            <th style={th}>Gender</th>
-            <th style={th}>Phone</th>
-            <th style={th}>Village</th>
-            <th style={th}>Action</th>
-          </tr>
-        </thead>
-
-        <tbody>
-          {filteredPatients.length === 0 ? (
+      <div className="table-wrapper">
+        <table>
+          <thead>
             <tr>
-              <td colSpan="6" style={{ textAlign: "center", padding: "20px" }}>
-                No patients found
-              </td>
+              <th>Name</th>
+              <th>Age</th>
+              <th>Gender</th>
+              <th>Phone</th>
+              <th>Village</th>
+              <th>Action</th>
             </tr>
-          ) : (
-            filteredPatients.map((patient) => (
-              <tr key={patient.id}>
-                <td style={td}>{patient.full_name}</td>
-                <td style={td}>{patient.age}</td>
-                <td style={td}>{patient.gender}</td>
-                <td style={td}>{patient.phone}</td>
-                <td style={td}>{patient.village}</td>
+          </thead>
 
-                <td style={td}>
-                  <Link to={`/patient/${patient.id}`}>
-                    <button style={viewBtn}>View</button>
-                  </Link>
-
-                  <Link to={`/edit-patient/${patient.id}`}>
-                    <button style={editBtn}>Edit</button>
-                  </Link>
-
-                  <button
-                    style={deleteBtn}
-                    onClick={() => deletePatient(patient.id)}
-                  >
-                    Delete
-                  </button>
+          <tbody>
+            {filteredPatients.length === 0 ? (
+              <tr>
+                <td colSpan="6" style={{ textAlign: "center", padding: "20px" }}>
+                  No patients found
                 </td>
               </tr>
-            ))
-          )}
-        </tbody>
-      </table>
+            ) : (
+              filteredPatients.map((patient) => (
+                <tr key={patient.id}>
+                  <td>{patient.full_name}</td>
+                  <td>{patient.age}</td>
+                  <td>{patient.gender}</td>
+                  <td>{patient.phone}</td>
+                  <td>{patient.village}</td>
+
+                  <td>
+                    <div className="form-actions" style={{ justifyContent: "flex-start" }}>
+                      <Link to={`/patient/${patient.id}`}>
+                        <button type="button">View</button>
+                      </Link>
+                      <Link to={`/edit-patient/${patient.id}`}>
+                        <button type="button">Edit</button>
+                      </Link>
+                      <button type="button" className="danger" onClick={() => deletePatient(patient.id)}>
+                        Delete
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
 
-/* 🎨 STYLES */
-
-const searchBox = {
-  padding: "10px",
-  width: "300px",
-  fontSize: "16px",
-};
-
-const addBtn = {
-  padding: "10px 20px",
-  fontSize: "16px",
-  cursor: "pointer",
-};
-
-const viewBtn = {
-  padding: "6px 12px",
-  cursor: "pointer",
-};
-
-const editBtn = {
-  padding: "6px 12px",
-  marginLeft: "6px",
-  cursor: "pointer",
-};
-
-const deleteBtn = {
-  padding: "6px 12px",
-  marginLeft: "6px",
-  backgroundColor: "#ff4d4d",
-  color: "white",
-  border: "none",
-  cursor: "pointer",
-};
-
-const table = {
-  width: "100%",
-  borderCollapse: "collapse",
-};
-
-const th = {
-  border: "1px solid #ccc",
-  padding: "12px",
-};
-
-const td = {
-  border: "1px solid #ccc",
-  padding: "10px",
-};

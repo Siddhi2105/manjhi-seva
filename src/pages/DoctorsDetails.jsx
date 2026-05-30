@@ -9,6 +9,12 @@ export default function DoctorDetails() {
   const [doctor, setDoctor] = useState(null);
   const [appointments, setAppointments] = useState([]);
 
+  // FETCH BOTH AT THE SAME TIME
+  useEffect(() => {
+    fetchDoctor();
+    fetchAppointments();
+  }, [id]);
+
   // FETCH DOCTOR DETAILS
   async function fetchDoctor() {
 
@@ -26,13 +32,21 @@ export default function DoctorDetails() {
     setDoctor(data);
   }
 
-  // FETCH APPOINTMENTS
+  // FETCH APPOINTMENTS BY doctor_id
   async function fetchAppointments() {
 
     const { data, error } = await supabase
       .from("appointments")
-      .select("*")
-      .eq("doctor_name", doctor?.doctor_name)
+      .select(`
+        id,
+        department,
+        appointment_date,
+        appointment_time,
+        reason,
+        status,
+        patients ( full_name )
+      `)
+      .eq("doctor_id", id)
       .order("appointment_date", { ascending: false });
 
     if (error) {
@@ -43,25 +57,7 @@ export default function DoctorDetails() {
     setAppointments(data);
   }
 
-  // LOAD DOCTOR
-  useEffect(() => {
-
-    fetchDoctor();
-
-  }, []);
-
-  // LOAD APPOINTMENTS AFTER DOCTOR LOADS
-  useEffect(() => {
-
-    if (doctor) {
-      fetchAppointments();
-    }
-
-  }, [doctor]);
-
-  // LOADING
   if (!doctor) {
-
     return (
       <div style={{ padding: "30px" }}>
         <h2>Loading doctor...</h2>
@@ -72,7 +68,7 @@ export default function DoctorDetails() {
   return (
     <div style={{ padding: "30px" }}>
 
-      <h1>👨‍⚕️ Doctor Details</h1>
+      <h1>Doctor Details</h1>
 
       {/* DOCTOR CARD */}
       <div style={card}>
@@ -80,21 +76,15 @@ export default function DoctorDetails() {
         <h2>{doctor.doctor_name}</h2>
 
         <p>
-          <strong>Specialization:</strong>
-          {" "}
-          {doctor.specialization}
+          <strong>Specialization:</strong> {doctor.specialization}
         </p>
 
         <p>
-          <strong>Phone:</strong>
-          {" "}
-          {doctor.phone}
+          <strong>Phone:</strong> {doctor.phone}
         </p>
 
         <p>
-          <strong>Availability:</strong>
-          {" "}
-          {doctor.availability}
+          <strong>Availability:</strong> {doctor.availability}
         </p>
 
       </div>
@@ -102,6 +92,9 @@ export default function DoctorDetails() {
       <br />
 
       <h2>Appointments</h2>
+      <p style={{ color: "#6b7280", marginBottom: "12px" }}>
+        {appointments.length} appointment(s) found
+      </p>
 
       {appointments.length === 0 ? (
 
@@ -111,39 +104,31 @@ export default function DoctorDetails() {
 
         appointments.map((appointment) => (
 
-          <div
-            key={appointment.id}
-            style={appointmentCard}
-          >
+          <div key={appointment.id} style={appointmentCard}>
 
             <p>
-              <strong>Department:</strong>
-              {" "}
-              {appointment.department}
+              <strong>Patient:</strong>{" "}
+              {appointment.patients?.full_name || "Unknown patient"}
             </p>
 
             <p>
-              <strong>Date:</strong>
-              {" "}
-              {appointment.appointment_date}
+              <strong>Department:</strong> {appointment.department}
             </p>
 
             <p>
-              <strong>Time:</strong>
-              {" "}
-              {appointment.appointment_time}
+              <strong>Date:</strong> {appointment.appointment_date}
             </p>
 
             <p>
-              <strong>Reason:</strong>
-              {" "}
-              {appointment.reason}
+              <strong>Time:</strong> {appointment.appointment_time}
             </p>
 
             <p>
-              <strong>Status:</strong>
-              {" "}
-              {appointment.status}
+              <strong>Reason:</strong> {appointment.reason}
+            </p>
+
+            <p>
+              <strong>Status:</strong> {appointment.status}
             </p>
 
           </div>

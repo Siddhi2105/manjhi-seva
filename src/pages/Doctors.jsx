@@ -61,7 +61,7 @@ export default function Doctors() {
   return (
     <div style={{ padding: "30px" }}>
 
-      <h1>👨‍⚕️ Doctors List</h1>
+      <h1>Doctors List</h1>
 
       <br />
 
@@ -77,7 +77,7 @@ export default function Doctors() {
       {/* SEARCH BOX */}
       <input
         type="text"
-        placeholder="🔍 Search doctor..."
+        placeholder="Search doctor..."
         value={searchTerm}
         onChange={(e) => setSearchTerm(e.target.value)}
         style={searchBox}

@@ -55,87 +55,52 @@ export default function Dashboard() {
   }
 
   return (
-    <div style={{ padding: "30px" }}>
-
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-        }}
-      >
-        <h1>🏥 Manjhi Seva Dashboard</h1>
-
-        <button onClick={handleLogout} style={logoutBtn}>
-          Logout
-        </button>
+    <div className="page-shell">
+      <div className="page-header">
+        <div>
+          <h1 className="page-title">Hospital Dashboard</h1>
+          <p className="page-subtitle">A clean view of your patient and appointment metrics.</p>
+        </div>
       </div>
 
-      <p>Hospital Management System</p>
-
-      <br />
-
-      {/* ANALYTICS CARDS */}
-
-      <div style={cardContainer}>
-
-        <div style={card}>
-          <h2>{totalPatients}</h2>
+      <div className="card-grid">
+        <div className="card">
+          <strong>{totalPatients}</strong>
           <p>Total Patients</p>
         </div>
 
-        <div style={card}>
-          <h2>{totalAppointments}</h2>
+        <div className="card">
+          <strong>{totalAppointments}</strong>
           <p>Total Appointments</p>
         </div>
 
-        <div
-          style={{
-            ...card,
-            backgroundColor: "#d1e7dd",
-          }}
-        >
-          <h2>{completedAppointments}</h2>
+        <div className="card success">
+          <strong>{completedAppointments}</strong>
           <p>Completed</p>
         </div>
 
-        <div
-          style={{
-            ...card,
-            backgroundColor: "#ffe69c",
-          }}
-        >
-          <h2>{pendingAppointments}</h2>
+        <div className="card warning">
+          <strong>{pendingAppointments}</strong>
           <p>Pending</p>
         </div>
-
       </div>
 
-      <br /><br />
-
-      {/* NAVIGATION BUTTONS */}
-
-      <div style={{ display: "flex", gap: "20px", flexWrap: "wrap" }}>
+      <div className="form-actions" style={{ marginTop: "2rem" }}>
         <Link to="/doctors">
-  <button style={btn}>Doctors</button>
-</Link>
-
+          <button type="button">Doctors</button>
+        </Link>
         <Link to="/patients">
-          <button style={btn}>Patients</button>
+          <button type="button">Patients</button>
         </Link>
-
         <Link to="/add-patient">
-          <button style={btn}>Add Patient</button>
+          <button type="button">Add Patient</button>
         </Link>
-
         <Link to="/appointments">
-          <button style={btn}>Appointments</button>
+          <button type="button">Appointments</button>
         </Link>
-
         <Link to="/symptom-checker">
-          <button style={btn}>AI Symptom Checker</button>
+          <button type="button">AI Symptom Checker</button>
         </Link>
-
       </div>
     </div>
   );
