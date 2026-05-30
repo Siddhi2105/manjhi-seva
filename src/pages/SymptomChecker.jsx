@@ -23,7 +23,7 @@ export default function SymptomChecker() {
     setResult(null);
 
     try {
-      console.log(import.meta.env.VITE_GROQ_API_KEY);
+      console.log("GROQ KEY:",import.meta.env.VITE_GROQ_API_KEY);
 
       const response = await fetch(
         "https://api.groq.com/openai/v1/chat/completions",
