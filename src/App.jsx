@@ -1,9 +1,10 @@
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
+﻿import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { supabase } from "./supabaseClient";
 
 import Navbar from "./components/Navbar";
 
+import AdminPanel from "./pages/AdminPanel";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import Dashboard from "./pages/Dashboard";
@@ -21,22 +22,41 @@ import DoctorsDetails from "./pages/DoctorsDetails";
 import EditDoctor from "./pages/EditDoctor";
 import EditAppointment from "./pages/EditAppointment";
 import EditHealthRecord from "./pages/EditHealthRecord";
+import PatientPortal from "./pages/PatientPortal";
+import DoctorPortal from "./pages/DoctorPortal";
+import AddStaff from "./pages/AddStaff";
 
-function AppRoutes({ session }) {
+function RoleRoute({ role, allowed, children }) {
+  if (role === null) return <div style={{ padding: "20px" }}><p>Loading...</p></div>;
+  if (!allowed.includes(role)) return <Navigate to="/dashboard" replace />;
+  return children;
+}
+
+function AppRoutes({ session, role }) {
   const location = useLocation();
   const authPages = ["/", "/signup"];
   const showNavbar = session && !authPages.includes(location.pathname);
 
   return (
     <>
-      {showNavbar && <Navbar />}
+      {showNavbar && <Navbar role={role} />}
 
       <main className="app-shell">
         <div className="app-container">
           <Routes>
             <Route
               path="/"
-              element={session ? <Navigate to="/dashboard" replace /> : <Login />}
+              element={
+                !session
+                  ? <Login />
+                  : role === null
+                  ? <div style={{ padding: "20px" }}><p>Loading...</p></div>
+                  : <Navigate to={
+                      role === "patient" ? "/my-portal" :
+                      role === "doctor" ? "/doctor-portal" :
+                      "/dashboard"
+                    } replace />
+              }
             />
             <Route
               path="/signup"
@@ -45,22 +65,126 @@ function AppRoutes({ session }) {
 
             {session ? (
               <>
-                <Route path="/dashboard" element={<Dashboard />} />
-                <Route path="/patients" element={<Patients />} />
-                <Route path="/add-patient" element={<AddPatient />} />
-                <Route path="/patient/:id" element={<PatientDetails />} />
-                <Route path="/add-health-record" element={<AddHealthRecord />} />
-                <Route path="/symptom-checker" element={<SymptomChecker />} />
-                <Route path="/appointments" element={<Appointments />} />
-                <Route path="/book-appointment" element={<BookAppointment />} />
-                <Route path="/edit-patient/:id" element={<EditPatient />} />
-                <Route path="/doctors" element={<Doctors />} />
-                <Route path="/add-doctor" element={<AddDoctor />} />
-                <Route path="/doctor/:id" element={<DoctorsDetails />} />
-                <Route path="/doctors/edit/:id" element={<EditDoctor />} />
-                <Route path="/appointments/edit/:id" element={<EditAppointment />} />
-                <Route path="/health-record/edit/:id" element={<EditHealthRecord />} />
-                <Route path="*" element={<Navigate to="/dashboard" replace />} />
+                {/* ── Dashboard — redirects doctors and patients away ── */}
+                <Route path="/dashboard" element={
+                  role === "patient"
+                    ? <Navigate to="/my-portal" replace />
+                    : role === "doctor"
+                    ? <Navigate to="/doctor-portal" replace />
+                    : <Dashboard role={role} />
+                } />
+
+                {/* ── Patient portal — patient only ── */}
+                <Route path="/my-portal" element={
+                  <RoleRoute role={role} allowed={["patient"]}>
+                    <PatientPortal session={session} />
+                  </RoleRoute>
+                } />
+
+                {/* ── Doctor portal — doctor only ── */}
+                <Route path="/doctor-portal" element={
+                  <RoleRoute role={role} allowed={["doctor"]}>
+                    <DoctorPortal session={session} />
+                  </RoleRoute>
+                } />
+
+                {/* ── Admin + Receptionist + Sevak only ── */}
+                <Route path="/patients" element={
+                  <RoleRoute role={role} allowed={["admin", "receptionist", "sevak"]}>
+                    <Patients />
+                  </RoleRoute>
+                } />
+                <Route path="/patient/:id" element={
+                  <RoleRoute role={role} allowed={["admin", "receptionist", "sevak"]}>
+                    <PatientDetails role={role} />
+                  </RoleRoute>
+                } />
+                <Route path="/appointments" element={
+                  <RoleRoute role={role} allowed={["admin", "receptionist", "sevak"]}>
+                    <Appointments />
+                  </RoleRoute>
+                } />
+
+                {/* ── Admin + Receptionist + Sevak only ── */}
+                <Route path="/add-patient" element={
+                  <RoleRoute role={role} allowed={["admin", "receptionist", "sevak"]}>
+                    <AddPatient />
+                  </RoleRoute>
+                } />
+                <Route path="/edit-patient/:id" element={
+                  <RoleRoute role={role} allowed={["admin", "receptionist", "sevak"]}>
+                    <EditPatient />
+                  </RoleRoute>
+                } />
+                <Route path="/add-health-record" element={
+                  <RoleRoute role={role} allowed={["admin", "receptionist", "sevak"]}>
+                    <AddHealthRecord />
+                  </RoleRoute>
+                } />
+                <Route path="/health-record/edit/:id" element={
+                  <RoleRoute role={role} allowed={["admin", "receptionist", "sevak"]}>
+                    <EditHealthRecord />
+                  </RoleRoute>
+                } />
+                <Route path="/book-appointment" element={
+                  <RoleRoute role={role} allowed={["admin", "receptionist", "sevak"]}>
+                    <BookAppointment />
+                  </RoleRoute>
+                } />
+                <Route path="/appointments/edit/:id" element={
+                  <RoleRoute role={role} allowed={["admin", "receptionist", "sevak"]}>
+                    <EditAppointment />
+                  </RoleRoute>
+                } />
+
+                {/* ── Admin only ── */}
+                <Route path="/admin" element={
+  <RoleRoute role={role} allowed={["admin"]}>
+    <AdminPanel />
+  </RoleRoute>
+} />
+<Route path="/add-staff" element={
+  <RoleRoute role={role} allowed={["admin"]}>
+    <AddStaff />
+  </RoleRoute>
+} />
+                <Route path="/doctors" element={
+                  <RoleRoute role={role} allowed={["admin"]}>
+                    <Doctors />
+                  </RoleRoute>
+                } />
+                <Route path="/add-doctor" element={
+                  <RoleRoute role={role} allowed={["admin"]}>
+                    <AddDoctor />
+                  </RoleRoute>
+                } />
+                <Route path="/doctor/:id" element={
+                  <RoleRoute role={role} allowed={["admin"]}>
+                    <DoctorsDetails />
+                  </RoleRoute>
+                } />
+                <Route path="/doctors/edit/:id" element={
+                  <RoleRoute role={role} allowed={["admin"]}>
+                    <EditDoctor />
+                  </RoleRoute>
+                } />
+
+                {/* ── Everyone ── */}
+                <Route path="/symptom-checker" element={
+                  <RoleRoute role={role} allowed={["admin", "doctor", "receptionist", "sevak", "patient"]}>
+                    <SymptomChecker />
+                  </RoleRoute>
+                } />
+
+                <Route path="*" element={
+                  role === null
+                    ? <div style={{ padding: "20px" }}><p>Loading...</p></div>
+                    : <Navigate to={
+                        role === "patient" ? "/my-portal" :
+                        role === "doctor" ? "/doctor-portal" :
+                        "/dashboard"
+                      } replace />
+                } />
               </>
             ) : (
               <Route path="*" element={<Navigate to="/" replace />} />
@@ -74,28 +198,51 @@ function AppRoutes({ session }) {
 
 export default function App() {
   const [session, setSession] = useState(null);
+  const [role, setRole] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-      setLoading(false);
-    });
-
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
+      if (session) {
+        supabase
+          .from("profiles")
+          .select("role")
+          .eq("id", session.user.id)
+          .single()
+          .then(({ data }) => {
+            setRole(data?.role || "receptionist");
+            setLoading(false);
+          });
+      } else {
+        setLoading(false);
+      }
     });
 
-    return () => {
-      listener.subscription.unsubscribe();
-    };
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+      if (session) {
+        supabase
+          .from("profiles")
+          .select("role")
+          .eq("id", session.user.id)
+          .single()
+          .then(({ data }) => {
+            setRole(data?.role || "receptionist");
+          });
+      } else {
+        setRole(null);
+      }
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
-  if (loading) return <h2>Loading...</h2>;
+  if (loading) return <div style={{ padding: "20px" }}><p>Loading...</p></div>;
 
   return (
     <BrowserRouter>
-      <AppRoutes session={session} />
+      <AppRoutes session={session} role={role} />
     </BrowserRouter>
   );
 }

@@ -1,361 +1,213 @@
 import { useState } from "react";
-import { useSearchParams, useNavigate } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 
 export default function SymptomChecker() {
-
   const [symptoms, setSymptoms] = useState("");
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [patientId, setPatientId] = useState("");
+  const [saveMsg, setSaveMsg] = useState("");
 
-  const navigate = useNavigate();
-
-  const [searchParams] = useSearchParams();
-
-  const patientId = searchParams.get("patient");
-
-  async function analyzeSymptoms(e) {
-
+  async function handleCheck(e) {
     e.preventDefault();
-
+    if (!symptoms.trim()) return;
     setLoading(true);
-
     setResult(null);
+    setSaveMsg("");
 
     try {
-      console.log(import.meta.env.VITE_GROQ_API_KEY);
-
-      const response = await fetch(
-        "https://api.groq.com/openai/v1/chat/completions",
-        {
-          method: "POST",
-
-          headers: {
-            "Content-Type": "application/json",
-
-            Authorization: `Bearer ${
-              import.meta.env.VITE_GROQ_API_KEY
-            }`,
-          },
-
-          body: JSON.stringify({
-            model: "llama-3.3-70b-versatile",
-
-            messages: [
-              {
-                role: "system",
-
-                content:
-                  "You are an AI medical triage assistant for a rural Indian hospital called Manjhi Seva. Always respond ONLY in valid JSON.",
-              },
-
-              {
-                role: "user",
-
-                content: `
-Analyze these symptoms:
-
-"${symptoms}"
-
-Respond ONLY in this JSON format:
-
+      const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${import.meta.env.VITE_GROQ_API_KEY}`,
+        },
+        body: JSON.stringify({
+          model: "llama-3.3-70b-versatile",
+          messages: [
+            {
+              role: "system",
+              content: `You are a medical triage assistant for a rural Indian hospital. 
+Analyze symptoms and respond ONLY in this JSON format:
 {
-  "riskLevel": "Low" | "Medium" | "High" | "Emergency",
-  "department": "suggested hospital department",
-  "advice": "simple patient advice",
-  "possibleConditions": ["condition1", "condition2"],
-  "urgency": "brief urgency explanation"
-}
-`,
-              },
-            ],
-
-            temperature: 0.3,
-          }),
-        }
-      );
+  "risk_level": "Low|Medium|High|Emergency",
+  "department": "department name",
+  "urgency": "brief urgency note",
+  "possible_conditions": ["condition1", "condition2"],
+  "advice": "plain English advice for patient",
+  "notes": "clinical notes for staff"
+}`,
+            },
+            { role: "user", content: `Patient symptoms: ${symptoms}` },
+          ],
+          temperature: 0.3,
+        }),
+      });
 
       const data = await response.json();
-
-      console.log(data);
-
-      // HANDLE API ERRORS
-      if (data.error) {
-
-        alert(data.error.message);
-
-        setLoading(false);
-
-        return;
-      }
-
-      // SAFETY CHECK
-      if (!data.choices || data.choices.length === 0) {
-
-        alert("No AI response received");
-
-        setLoading(false);
-
-        return;
-      }
-
-      // EXTRACT AI RESPONSE
-      const text = data.choices[0].message.content;
-
-      console.log(text);
-
-      // CLEAN JSON IF AI RETURNS ```json
-      const cleanedText = text
-        .replace(/```json/g, "")
-        .replace(/```/g, "")
-        .trim();
-
-      // PARSE JSON
-      const parsed = JSON.parse(cleanedText);
-
-      setResult(parsed);
-
-    } catch (error) {
-
-      console.log(error);
-
-      alert("Error analyzing symptoms: " + error.message);
+      const text = data.choices?.[0]?.message?.content || "";
+      const clean = text.replace(/```json|```/g, "").trim();
+      setResult(JSON.parse(clean));
+    } catch (err) {
+      setResult({ error: "Failed to analyze symptoms. Please try again." });
     }
-
     setLoading(false);
   }
 
-  async function saveToHealthRecord() {
-
-    if (!patientId || !result) {
-
-      alert("No patient selected or no result generated.");
-
+  async function handleSave() {
+    if (!result || !patientId.trim()) {
+      setSaveMsg("Enter a Patient ID to save.");
       return;
     }
-
-    const { error } = await supabase
-      .from("health_records")
-      .insert([
-        {
-          patient_id: patientId,
-
-          notes: `
-AI Symptom Analysis: ${symptoms}
-
-Advice: ${result.advice}
-
-Suggested Department: ${result.department}
-
-Possible Conditions: ${result.possibleConditions?.join(", ")}
-          `,
-
-          risk_level: result.riskLevel,
-        },
-      ]);
-
-    if (error) {
-
-      alert(error.message);
-
-      return;
-    }
-
-    alert("AI result saved to health record!");
-
-    navigate(`/patient/${patientId}`);
+    setSaving(true);
+    const { error } = await supabase.from("health_records").insert({
+      patient_id: patientId.trim(),
+      notes: `AI Symptom Check — ${symptoms}\n\nAdvice: ${result.advice}\nConditions: ${result.possible_conditions?.join(", ")}\nUrgency: ${result.urgency}`,
+      risk_level: result.risk_level || "Low",
+    });
+    setSaving(false);
+    setSaveMsg(error ? `Error: ${error.message}` : "Saved to health records.");
   }
 
-  // RISK COLORS
-  function riskColor(level) {
+  const riskColors = {
+    Low: "bg-emerald-50 text-emerald-700 border-emerald-200",
+    Medium: "bg-amber-50 text-amber-700 border-amber-200",
+    High: "bg-orange-50 text-orange-700 border-orange-200",
+    Emergency: "bg-red-50 text-red-700 border-red-200",
+  };
 
-    const colors = {
-      Low: "#16a34a",
-      Medium: "#d97706",
-      High: "#dc2626",
-      Emergency: "#7c3aed",
-    };
-
-    return colors[level] || "#6b7280";
-  }
+  const riskBorder = {
+    Low: "border-l-emerald-500",
+    Medium: "border-l-amber-500",
+    High: "border-l-orange-500",
+    Emergency: "border-l-red-500",
+  };
 
   return (
-    <div
-      style={{
-        maxWidth: "700px",
-        margin: "2rem auto",
-        padding: "0 1rem",
-      }}
-    >
+    <div className="min-h-screen bg-slate-50 p-6">
+      <div className="max-w-2xl mx-auto">
 
-      <h1>AI Symptom Checker</h1>
-
-      <p style={{ color: "#6b7280" }}>
-        Powered by Groq + Llama 3 AI
-      </p>
-
-      {/* WARNING */}
-      {!patientId && (
-        <p
-          style={{
-            color: "#d97706",
-            backgroundColor: "#fef9c3",
-            padding: "10px",
-            borderRadius: "6px",
-            marginBottom: "1rem",
-          }}
-        >
-          No patient selected. Open this from Patient
-          Details to save the result.
-        </p>
-      )}
-
-      {/* FORM */}
-      <form onSubmit={analyzeSymptoms}>
-
-        <textarea
-          placeholder="Describe symptoms in detail..."
-          value={symptoms}
-          onChange={(e) => setSymptoms(e.target.value)}
-          required
-          style={{
-            width: "100%",
-            height: "150px",
-            padding: "12px",
-            fontSize: "15px",
-            borderRadius: "8px",
-            border: "1px solid #ccc",
-            resize: "vertical",
-          }}
-        />
-
-        <br />
-        <br />
-
-        <button
-          type="submit"
-          disabled={loading}
-          style={{
-            padding: "10px 24px",
-            backgroundColor: "#2563eb",
-            color: "white",
-            border: "none",
-            borderRadius: "6px",
-            fontSize: "16px",
-            cursor: loading ? "not-allowed" : "pointer",
-          }}
-        >
-          {loading
-            ? "Analyzing..."
-            : "Analyze Symptoms"}
-        </button>
-
-      </form>
-
-      {/* RESULT */}
-      {result && (
-        <div
-          style={{
-            marginTop: "24px",
-
-            border: `2px solid ${riskColor(
-              result.riskLevel
-            )}`,
-
-            padding: "20px",
-
-            borderRadius: "10px",
-
-            backgroundColor: "#f9fafb",
-          }}
-        >
-
-          <h2>🩺 Analysis Result</h2>
-
-          {/* RISK BADGE */}
-          <div
-            style={{
-              display: "inline-block",
-
-              backgroundColor: riskColor(
-                result.riskLevel
-              ),
-
-              color: "white",
-
-              padding: "4px 16px",
-
-              borderRadius: "20px",
-
-              fontWeight: "bold",
-
-              marginBottom: "16px",
-            }}
-          >
-            {result.riskLevel} Risk
-          </div>
-
-          <p>
-            <strong>Suggested Department:</strong>{" "}
-            {result.department}
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-2xl font-bold text-slate-800">AI Symptom Checker</h1>
+          <p className="text-slate-500 text-sm mt-1">
+            Describe symptoms in plain language — get a triage assessment instantly.
           </p>
-
-          <p>
-            <strong>Urgency:</strong>{" "}
-            {result.urgency}
-          </p>
-
-          <p>
-            <strong>Advice:</strong>{" "}
-            {result.advice}
-          </p>
-
-          {/* CONDITIONS */}
-          {result.possibleConditions?.length > 0 && (
-            <div>
-
-              <strong>Possible Conditions:</strong>
-
-              <ul style={{ marginTop: "6px" }}>
-                {result.possibleConditions.map(
-                  (condition, index) => (
-                    <li key={index}>
-                      {condition}
-                    </li>
-                  )
-                )}
-              </ul>
-
-            </div>
-          )}
-
-          {/* SAVE BUTTON */}
-          {patientId && (
-            <button
-              onClick={saveToHealthRecord}
-              style={{
-                marginTop: "16px",
-
-                padding: "10px 20px",
-
-                backgroundColor: "#16a34a",
-
-                color: "white",
-
-                border: "none",
-
-                borderRadius: "6px",
-
-                cursor: "pointer",
-              }}
-            >
-              Save to Patient Health Record
-            </button>
-          )}
-
         </div>
-      )}
 
+        {/* Input Card */}
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 mb-6">
+          <form onSubmit={handleCheck} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">
+                Describe the symptoms
+              </label>
+              <textarea
+                rows={4}
+                placeholder="e.g. Fever for 3 days, headache, body pain, no appetite..."
+                value={symptoms}
+                onChange={(e) => setSymptoms(e.target.value)}
+                required
+                className="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition resize-none"
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-medium text-sm rounded-lg transition-colors cursor-pointer"
+            >
+              {loading ? "Analyzing..." : "Analyze Symptoms"}
+            </button>
+          </form>
+        </div>
+
+        {/* Result Card */}
+        {result && !result.error && (
+          <div className={`bg-white rounded-xl border border-slate-200 border-l-4 ${riskBorder[result.risk_level] || "border-l-slate-400"} shadow-sm p-6 space-y-5`}>
+
+            {/* Risk + Department */}
+            <div className="flex items-center justify-between flex-wrap gap-3">
+              <span className={`text-xs font-semibold px-3 py-1 rounded-full border ${riskColors[result.risk_level] || "bg-slate-100 text-slate-600 border-slate-200"}`}>
+                {result.risk_level} Risk
+              </span>
+              <span className="text-sm font-medium text-slate-700 bg-slate-100 px-3 py-1 rounded-full">
+                → {result.department}
+              </span>
+            </div>
+
+            {/* Urgency */}
+            {result.urgency && (
+              <div>
+                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Urgency</p>
+                <p className="text-sm text-slate-700">{result.urgency}</p>
+              </div>
+            )}
+
+            {/* Possible Conditions */}
+            {result.possible_conditions?.length > 0 && (
+              <div>
+                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Possible Conditions</p>
+                <div className="flex flex-wrap gap-2">
+                  {result.possible_conditions.map((c, i) => (
+                    <span key={i} className="text-xs px-2.5 py-1 bg-blue-50 text-blue-700 border border-blue-100 rounded-full">
+                      {c}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Advice */}
+            {result.advice && (
+              <div>
+                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Advice</p>
+                <p className="text-sm text-slate-700 leading-relaxed">{result.advice}</p>
+              </div>
+            )}
+
+            {/* Clinical Notes */}
+            {result.notes && (
+              <div className="bg-slate-50 rounded-lg p-3">
+                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Clinical Notes</p>
+                <p className="text-sm text-slate-600 leading-relaxed">{result.notes}</p>
+              </div>
+            )}
+
+            {/* Save to Health Record */}
+            <div className="border-t border-slate-100 pt-4">
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Save to Health Record</p>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="Patient UUID"
+                  value={patientId}
+                  onChange={(e) => setPatientId(e.target.value)}
+                  className="flex-1 px-3 py-2 rounded-lg border border-slate-200 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+                />
+                <button
+                  onClick={handleSave}
+                  disabled={saving}
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 text-white text-sm font-medium rounded-lg transition-colors cursor-pointer whitespace-nowrap"
+                >
+                  {saving ? "Saving..." : "Save"}
+                </button>
+              </div>
+              {saveMsg && (
+                <p className={`text-sm mt-2 ${saveMsg.startsWith("Error") ? "text-red-600" : "text-emerald-600"}`}>
+                  {saveMsg}
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+
+        {result?.error && (
+          <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-sm text-red-600">
+            {result.error}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
