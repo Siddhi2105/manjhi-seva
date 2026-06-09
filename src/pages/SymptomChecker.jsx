@@ -17,6 +17,7 @@ export default function SymptomChecker() {
     setSaveMsg("");
 
     try {
+<<<<<<< HEAD
       const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
         method: "POST",
         headers: {
@@ -30,6 +31,44 @@ export default function SymptomChecker() {
               role: "system",
               content: `You are a medical triage assistant for a rural Indian hospital. 
 Analyze symptoms and respond ONLY in this JSON format:
+=======
+      console.log("GROQ KEY:",import.meta.env.VITE_GROQ_API_KEY);
+
+      const response = await fetch(
+        "https://api.groq.com/openai/v1/chat/completions",
+        {
+          method: "POST",
+
+          headers: {
+            "Content-Type": "application/json",
+
+            Authorization: `Bearer ${
+              import.meta.env.VITE_GROQ_API_KEY
+            }`,
+          },
+
+          body: JSON.stringify({
+            model: "llama-3.3-70b-versatile",
+
+            messages: [
+              {
+                role: "system",
+
+                content:
+                  "You are an AI medical triage assistant for a rural Indian hospital called Manjhi Seva. Always respond ONLY in valid JSON.",
+              },
+
+              {
+                role: "user",
+
+                content: `
+Analyze these symptoms:
+
+"${symptoms}"
+
+Respond ONLY in this JSON format:
+
+>>>>>>> eadf8eb80290667a0d0a1cc2ff62e4933d9eb958
 {
   "risk_level": "Low|Medium|High|Emergency",
   "department": "department name",
