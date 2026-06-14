@@ -1,9 +1,36 @@
 import { Link, useNavigate, useLocation } from "react-router-dom";
+import { useEffect, useState } from "react";
 import { supabase } from "../supabaseClient";
 
 export default function Navbar({ role }) {
   const navigate = useNavigate();
   const location = useLocation();
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  useEffect(() => {
+    if (!["admin", "doctor"].includes(role)) return;
+
+    fetchUnreadCount();
+
+    const channel = supabase
+      .channel("navbar-alerts")
+      .on("postgres_changes", {
+        event: "*",
+        schema: "public",
+        table: "alerts",
+      }, () => fetchUnreadCount())
+      .subscribe();
+
+    return () => supabase.removeChannel(channel);
+  }, [role]);
+
+  async function fetchUnreadCount() {
+    const { count } = await supabase
+      .from("alerts")
+      .select("*", { count: "exact", head: true })
+      .eq("is_read", false);
+    setUnreadCount(count || 0);
+  }
 
   async function handleLogout() {
     await supabase.auth.signOut();
@@ -15,13 +42,16 @@ export default function Navbar({ role }) {
   }
 
   const canSee = {
-    patients:      ["admin", "receptionist", "sevak"],
-    doctors:       ["admin"],
-    appointments:  ["admin", "receptionist", "sevak"],
-    aiChecker:     ["admin", "doctor", "receptionist", "sevak", "patient"],
-    doctorPortal:  ["doctor"],
-    patientPortal: ["patient"],
-    adminPanel:    ["admin"],
+    patients:          ["admin", "receptionist", "sevak"],
+    doctors:           ["admin"],
+    appointments:      ["admin", "receptionist", "sevak"],
+    aiChecker:         ["admin", "doctor", "receptionist", "sevak", "patient"],
+    doctorPortal:      ["doctor"],
+    patientPortal:     ["patient"],
+    adminPanel:        ["admin"],
+    appointmentRouter: ["admin", "receptionist", "sevak"],
+    pipeline:          ["admin"],
+    alerts:            ["admin", "doctor"],
   };
 
   const navLink = (path, label) => (
@@ -62,6 +92,27 @@ export default function Navbar({ role }) {
         {canSee.appointments.includes(role) && navLink("/appointments", "Appointments")}
         {canSee.aiChecker.includes(role) && navLink("/symptom-checker", "AI Checker")}
         {canSee.adminPanel.includes(role) && navLink("/admin", "Admin Panel")}
+        {canSee.appointmentRouter.includes(role) && navLink("/appointment-router", "AI Router")}
+        {canSee.pipeline.includes(role) && navLink("/pipeline", "🤖 Pipeline")}
+
+        {/* ── Alerts bell ── */}
+        {canSee.alerts.includes(role) && (
+          <Link
+            to="/alerts"
+            className={`relative px-3 py-1.5 rounded-md text-sm font-medium transition-colors duration-150
+              ${isActive("/alerts")
+                ? "bg-blue-600 text-white"
+                : "text-slate-300 hover:text-white hover:bg-slate-700"
+              }`}
+          >
+            🔔
+            {unreadCount > 0 && (
+              <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+                {unreadCount > 99 ? "99+" : unreadCount}
+              </span>
+            )}
+          </Link>
+        )}
       </div>
 
       {/* ── Right side: role badge + logout ── */}

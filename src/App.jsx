@@ -25,9 +25,14 @@ import EditHealthRecord from "./pages/EditHealthRecord";
 import PatientPortal from "./pages/PatientPortal";
 import DoctorPortal from "./pages/DoctorPortal";
 import AddStaff from "./pages/AddStaff";
+import AppointmentRouter from "./pages/AppointmentRouter";
+import DischargeSummary from "./pages/DischargeSummary";
+import PipelineMonitor from "./pages/PipelineMonitor";
+import Alerts from "./pages/Alerts";
+
 
 function RoleRoute({ role, allowed, children }) {
-  if (role === null) return <div style={{ padding: "20px" }}><p>Loading...</p></div>;
+  if (role === null) return <div className="p-5"><p>Loading...</p></div>;
   if (!allowed.includes(role)) return <Navigate to="/dashboard" replace />;
   return children;
 }
@@ -40,7 +45,6 @@ function AppRoutes({ session, role }) {
   return (
     <>
       {showNavbar && <Navbar role={role} />}
-
       <main className="app-shell">
         <div className="app-container">
           <Routes>
@@ -50,7 +54,7 @@ function AppRoutes({ session, role }) {
                 !session
                   ? <Login />
                   : role === null
-                  ? <div style={{ padding: "20px" }}><p>Loading...</p></div>
+                  ? <div className="p-5"><p>Loading...</p></div>
                   : <Navigate to={
                       role === "patient" ? "/my-portal" :
                       role === "doctor" ? "/doctor-portal" :
@@ -65,7 +69,6 @@ function AppRoutes({ session, role }) {
 
             {session ? (
               <>
-                {/* ── Dashboard — redirects doctors and patients away ── */}
                 <Route path="/dashboard" element={
                   role === "patient"
                     ? <Navigate to="/my-portal" replace />
@@ -74,21 +77,18 @@ function AppRoutes({ session, role }) {
                     : <Dashboard role={role} />
                 } />
 
-                {/* ── Patient portal — patient only ── */}
                 <Route path="/my-portal" element={
                   <RoleRoute role={role} allowed={["patient"]}>
                     <PatientPortal session={session} />
                   </RoleRoute>
                 } />
 
-                {/* ── Doctor portal — doctor only ── */}
                 <Route path="/doctor-portal" element={
                   <RoleRoute role={role} allowed={["doctor"]}>
                     <DoctorPortal session={session} />
                   </RoleRoute>
                 } />
 
-                {/* ── Admin + Receptionist + Sevak only ── */}
                 <Route path="/patients" element={
                   <RoleRoute role={role} allowed={["admin", "receptionist", "sevak"]}>
                     <Patients />
@@ -104,8 +104,6 @@ function AppRoutes({ session, role }) {
                     <Appointments />
                   </RoleRoute>
                 } />
-
-                {/* ── Admin + Receptionist + Sevak only ── */}
                 <Route path="/add-patient" element={
                   <RoleRoute role={role} allowed={["admin", "receptionist", "sevak"]}>
                     <AddPatient />
@@ -137,17 +135,16 @@ function AppRoutes({ session, role }) {
                   </RoleRoute>
                 } />
 
-                {/* ── Admin only ── */}
                 <Route path="/admin" element={
-  <RoleRoute role={role} allowed={["admin"]}>
-    <AdminPanel />
-  </RoleRoute>
-} />
-<Route path="/add-staff" element={
-  <RoleRoute role={role} allowed={["admin"]}>
-    <AddStaff />
-  </RoleRoute>
-} />
+                  <RoleRoute role={role} allowed={["admin"]}>
+                    <AdminPanel />
+                  </RoleRoute>
+                } />
+                <Route path="/add-staff" element={
+                  <RoleRoute role={role} allowed={["admin"]}>
+                    <AddStaff />
+                  </RoleRoute>
+                } />
                 <Route path="/doctors" element={
                   <RoleRoute role={role} allowed={["admin"]}>
                     <Doctors />
@@ -169,16 +166,38 @@ function AppRoutes({ session, role }) {
                   </RoleRoute>
                 } />
 
-                {/* ── Everyone ── */}
+                {/* ── Pipeline Monitor — admin only ── */}
+                <Route path="/pipeline" element={
+                  <RoleRoute role={role} allowed={["admin"]}>
+                    <PipelineMonitor />
+                  </RoleRoute>
+                } />
+                <Route path="/alerts" element={
+  <RoleRoute role={role} allowed={["admin", "doctor"]}>
+    <Alerts />
+  </RoleRoute>
+} />
+
+
                 <Route path="/symptom-checker" element={
                   <RoleRoute role={role} allowed={["admin", "doctor", "receptionist", "sevak", "patient"]}>
                     <SymptomChecker />
                   </RoleRoute>
                 } />
+                <Route path="/appointment-router" element={
+                  <RoleRoute role={role} allowed={["admin", "receptionist", "sevak"]}>
+                    <AppointmentRouter />
+                  </RoleRoute>
+                } />
+                <Route path="/discharge/:patientId" element={
+                  <RoleRoute role={role} allowed={["admin", "doctor", "receptionist"]}>
+                    <DischargeSummary />
+                  </RoleRoute>
+                } />
 
                 <Route path="*" element={
                   role === null
-                    ? <div style={{ padding: "20px" }}><p>Loading...</p></div>
+                    ? <div className="p-5"><p>Loading...</p></div>
                     : <Navigate to={
                         role === "patient" ? "/my-portal" :
                         role === "doctor" ? "/doctor-portal" :
@@ -206,12 +225,9 @@ export default function App() {
       setSession(session);
       if (session) {
         supabase
-          .from("profiles")
-          .select("role")
-          .eq("id", session.user.id)
-          .single()
+          .from("profiles").select("role").eq("id", session.user.id).single()
           .then(({ data }) => {
-            setRole(data?.role || "receptionist");
+            setRole(data?.role || null);
             setLoading(false);
           });
       } else {
@@ -223,13 +239,8 @@ export default function App() {
       setSession(session);
       if (session) {
         supabase
-          .from("profiles")
-          .select("role")
-          .eq("id", session.user.id)
-          .single()
-          .then(({ data }) => {
-            setRole(data?.role || "receptionist");
-          });
+          .from("profiles").select("role").eq("id", session.user.id).single()
+          .then(({ data }) => { setRole(data?.role || null); });
       } else {
         setRole(null);
       }
@@ -238,7 +249,7 @@ export default function App() {
     return () => subscription.unsubscribe();
   }, []);
 
-  if (loading) return <div style={{ padding: "20px" }}><p>Loading...</p></div>;
+  if (loading) return <div className="p-5"><p>Loading...</p></div>;
 
   return (
     <BrowserRouter>

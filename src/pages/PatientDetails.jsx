@@ -224,12 +224,11 @@ Appointment ${i + 1}: ${a.appointment_date} — ${a.department} — Dr. ${a.doct
             </button>
           </Link>
           <button
-            onClick={generateAISummary}
-            disabled={summaryLoading}
-            className="px-4 py-2 text-sm bg-purple-600 hover:bg-purple-700 disabled:bg-purple-400 text-white font-medium rounded-lg transition-colors cursor-pointer"
-          >
-            {summaryLoading ? "Generating..." : "Generate AI Summary"}
-          </button>
+  onClick={() => navigate(`/discharge/${patient.id}`)}
+  className="px-4 py-2 text-sm bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-lg transition-colors cursor-pointer"
+>
+  Discharge Summary
+</button>
         </div>
 
         {/* ── AI Summary Result ── */}

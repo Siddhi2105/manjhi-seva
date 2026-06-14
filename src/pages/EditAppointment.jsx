@@ -2,6 +2,104 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 
+async function runAgent3(patientId, appointmentData) {
+  try {
+    // Fetch all data needed for discharge summary
+    const [{ data: patient }, { data: healthRecords }, { data: appointments }] =
+      await Promise.all([
+        supabase.from("patients").select("*").eq("id", patientId).single(),
+        supabase.from("health_records").select("*").eq("patient_id", patientId).order("created_at", { ascending: false }),
+        supabase.from("appointments").select("*, doctors(doctor_name, specialization)").eq("patient_id", patientId).order("appointment_date", { ascending: false }),
+      ]);
+
+    if (!patient) return;
+
+    const recordsText = !healthRecords?.length
+      ? "No health records."
+      : healthRecords.map((r, i) =>
+          `Record ${i + 1} (${new Date(r.created_at).toLocaleDateString()}): Temp: ${r.temperature || "N/A"}, BP: ${r.bp || "N/A"}, Sugar: ${r.sugar || "N/A"}, SpO2: ${r.spo2 || "N/A"}, Pulse: ${r.pulse || "N/A"}, Risk: ${r.risk_level || "N/A"}, Notes: ${r.notes || "N/A"}`
+        ).join("\n");
+
+    const apptText = !appointments?.length
+      ? "No appointments."
+      : appointments.map((a, i) =>
+          `Appt ${i + 1}: ${a.appointment_date} — ${a.department} — Dr. ${a.doctors?.doctor_name || "Unknown"} — ${a.status} — Reason: ${a.reason || "N/A"}`
+        ).join("\n");
+
+    const prompt = `You are a senior hospital physician at Manjhi Seva, a rural Indian hospital. Generate a formal medical discharge summary.
+
+Patient: ${patient.full_name}, Age: ${patient.age}, Gender: ${patient.gender}, Village: ${patient.village || "N/A"}
+Initial Symptoms: ${patient.symptoms || "N/A"}
+Completed Appointment: ${appointmentData.appointment_date} — ${appointmentData.department} — Reason: ${appointmentData.reason || "N/A"}
+
+Health Records:
+${recordsText}
+
+All Appointments:
+${apptText}
+
+Respond ONLY in this exact JSON format:
+{
+  "discharge_condition": "Stable" | "Recovered" | "Referred" | "Against Medical Advice",
+  "primary_diagnosis": "string",
+  "secondary_diagnosis": "string or null",
+  "treatment_given": ["item1", "item2"],
+  "medications_to_continue": [{"name": "string", "dosage": "string", "duration": "string"}],
+  "follow_up_date": "YYYY-MM-DD or Within X days",
+  "follow_up_department": "string",
+  "diet_instructions": "string",
+  "activity_restrictions": "string",
+  "warning_signs": ["sign1", "sign2"],
+  "doctor_notes": "string",
+  "summary_paragraph": "2-3 sentence clinical summary"
+}`;
+
+    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${import.meta.env.VITE_GROQ_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: "llama-3.3-70b-versatile",
+        messages: [{ role: "user", content: prompt }],
+        temperature: 0.3,
+      }),
+    });
+
+    const data = await res.json();
+    const raw = data.choices[0].message.content.trim();
+    const clean = raw.replace(/```json|```/g, "").trim();
+    const result = JSON.parse(clean);
+
+    // Log to pipeline_logs
+    await supabase.from("pipeline_logs").insert({
+      patient_id: patientId,
+      agent: "Agent 3 — Discharge Summary",
+      status: "completed",
+      input: {
+        patient_name: patient.full_name,
+        appointment_date: appointmentData.appointment_date,
+        department: appointmentData.department,
+      },
+      output: result,
+    });
+
+    // Save summary as a health record note
+    await supabase.from("health_records").insert({
+      patient_id: patientId,
+      notes: `DISCHARGE SUMMARY — ${result.primary_diagnosis}. ${result.summary_paragraph} Follow-up: ${result.follow_up_date} at ${result.follow_up_department}.`,
+      risk_level: result.discharge_condition === "Against Medical Advice" ? "High" :
+                  result.discharge_condition === "Referred" ? "Medium" : "Low",
+    });
+
+    console.log("Agent 3 completed for patient:", patientId);
+
+  } catch (err) {
+    console.error("Agent 3 error:", err);
+  }
+}
+
 export default function EditAppointment() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -10,9 +108,11 @@ export default function EditAppointment() {
     patient_id: "", doctor_id: "", department: "",
     appointment_date: "", appointment_time: "", reason: "", status: "",
   });
+  const [originalStatus, setOriginalStatus] = useState("");
   const [doctors, setDoctors] = useState([]);
   const [patients, setPatients] = useState([]);
   const [saving, setSaving] = useState(false);
+  const [agentRunning, setAgentRunning] = useState(false);
 
   useEffect(() => { fetchAppointment(); fetchDoctors(); fetchPatients(); }, [id]);
 
@@ -21,6 +121,7 @@ export default function EditAppointment() {
       .from("appointments").select("*").eq("id", id).single();
     if (error) { alert(error.message); return; }
     setAppointment(data);
+    setOriginalStatus(data.status);  // ← track original status
   }
 
   async function fetchDoctors() {
@@ -38,6 +139,7 @@ export default function EditAppointment() {
   async function updateAppointment(e) {
     e.preventDefault();
     setSaving(true);
+
     const { error } = await supabase
       .from("appointments")
       .update({
@@ -50,8 +152,17 @@ export default function EditAppointment() {
         status: appointment.status,
       })
       .eq("id", id);
+
     setSaving(false);
     if (error) { alert(error.message); return; }
+
+    // ── Trigger Agent 3 if status just changed to Completed ──
+    if (appointment.status === "Completed" && originalStatus !== "Completed") {
+      setAgentRunning(true);
+      await runAgent3(appointment.patient_id, appointment);
+      setAgentRunning(false);
+    }
+
     navigate("/appointments");
   }
 
@@ -76,6 +187,14 @@ export default function EditAppointment() {
           <h1 className="text-2xl font-bold text-slate-800">Edit Appointment</h1>
           <p className="text-slate-500 text-sm mt-1">Update appointment details or status.</p>
         </div>
+
+        {/* Agent running banner */}
+        {agentRunning && (
+          <div className="mb-4 px-4 py-3 rounded-lg bg-purple-50 border border-purple-200 text-purple-700 text-sm font-medium flex items-center gap-2">
+            <span className="animate-pulse">🤖</span>
+            Agent 3 is generating discharge summary...
+          </div>
+        )}
 
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
           <form onSubmit={updateAppointment} className="space-y-4">
@@ -158,14 +277,19 @@ export default function EditAppointment() {
                 <option value="Completed">Completed</option>
                 <option value="Cancelled">Cancelled</option>
               </select>
+              {appointment.status === "Completed" && originalStatus !== "Completed" && (
+                <p className="text-xs text-purple-600 mt-1.5 flex items-center gap-1">
+                  🤖 Agent 3 will auto-generate a discharge summary when saved.
+                </p>
+              )}
             </div>
 
             <div className="flex gap-3 pt-2">
               <button
-                type="submit" disabled={saving}
+                type="submit" disabled={saving || agentRunning}
                 className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white text-sm font-medium rounded-lg transition-colors cursor-pointer"
               >
-                {saving ? "Saving..." : "Update Appointment"}
+                {saving ? "Saving..." : agentRunning ? "Running Agent 3..." : "Update Appointment"}
               </button>
               <button
                 type="button" onClick={() => navigate("/appointments")}

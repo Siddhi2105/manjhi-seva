@@ -1,6 +1,19 @@
 import { useEffect, useState, useRef } from "react";
 import { supabase } from "../supabaseClient";
 
+const LANGUAGES = [
+  { code: "hindi", label: "हिंदी (Hindi)" },
+  { code: "marathi", label: "मराठी (Marathi)" },
+  { code: "bengali", label: "বাংলা (Bengali)" },
+  { code: "tamil", label: "தமிழ் (Tamil)" },
+  { code: "telugu", label: "తెలుగు (Telugu)" },
+  { code: "kannada", label: "ಕನ್ನಡ (Kannada)" },
+  { code: "malayalam", label: "മലയാളം (Malayalam)" },
+  { code: "gujarati", label: "ગુજરાતી (Gujarati)" },
+  { code: "punjabi", label: "ਪੰਜਾਬੀ (Punjabi)" },
+  { code: "odia", label: "ଓଡ଼ିଆ (Odia)" },
+];
+
 export default function PatientPortal() {
   const [patient, setPatient] = useState(null);
   const [records, setRecords] = useState([]);
@@ -9,19 +22,21 @@ export default function PatientPortal() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("health");
 
-  // AI Symptom Checker state
   const [symptoms, setSymptoms] = useState("");
   const [aiResult, setAiResult] = useState(null);
   const [aiLoading, setAiLoading] = useState(false);
 
-  // AI Summary state
   const [summaryResult, setSummaryResult] = useState(null);
   const [summaryLoading, setSummaryLoading] = useState(false);
 
-  // File upload state
   const [uploading, setUploading] = useState(false);
   const [uploadNote, setUploadNote] = useState("");
   const fileInputRef = useRef(null);
+
+  // Agent 2 state
+  const [selectedLanguage, setSelectedLanguage] = useState("hindi");
+  const [hindiSummary, setHindiSummary] = useState(null);
+  const [hindiLoading, setHindiLoading] = useState(false);
 
   useEffect(() => {
     loadPortalData();
@@ -34,7 +49,6 @@ export default function PatientPortal() {
 
     const userId = session.user.id;
 
-    // Get patient row linked to this user
     const { data: patientData } = await supabase
       .from("patients")
       .select("*")
@@ -56,6 +70,82 @@ export default function PatientPortal() {
     setAppointments(appts || []);
     setUploads(docs || []);
     setLoading(false);
+  }
+
+  // ── Agent 2 — Multilingual Health Summary ──
+  async function runAgent2() {
+    if (!patient) return;
+    setHindiLoading(true);
+    setHindiSummary(null);
+
+    const langLabel = LANGUAGES.find(l => l.code === selectedLanguage)?.label || "Hindi";
+
+    const latestRecord = records[0];
+    const nextAppointment = appointments.find(a => a.status === "Booked");
+    const lastAppointment = appointments.find(a => a.status === "Completed");
+
+    const recordsText = records.length === 0
+      ? "No health records."
+      : records.slice(0, 3).map((r, i) =>
+          `Record ${i + 1}: BP: ${r.bp || "N/A"}, Sugar: ${r.sugar || "N/A"}, SpO2: ${r.spo2 || "N/A"}, Pulse: ${r.pulse || "N/A"}, Temp: ${r.temperature || "N/A"}, Risk: ${r.risk_level || "N/A"}, Notes: ${r.notes || "N/A"}`
+        ).join("\n");
+
+    const apptText = appointments.length === 0
+      ? "No appointments."
+      : appointments.slice(0, 3).map(a =>
+          `${a.appointment_date} — ${a.department} — ${a.status} — Reason: ${a.reason || "N/A"}`
+        ).join("\n");
+
+    const prompt = `You are a compassionate village health worker explaining a patient's health to them in simple, warm, everyday ${selectedLanguage} language.
+
+IMPORTANT RULES:
+- Write EVERYTHING in ${selectedLanguage} script only. Not English. Not transliteration.
+- Use simple words a village person would understand. No medical jargon.
+- Be warm, caring, and reassuring like a trusted family doctor.
+- Keep it short — 4 to 6 sentences total.
+- Address the patient by name: ${patient.full_name}
+
+Patient details:
+Name: ${patient.full_name}
+Age: ${patient.age}, Gender: ${patient.gender}, Village: ${patient.village || "N/A"}
+Symptoms at registration: ${patient.symptoms || "Not mentioned"}
+
+Recent Health Records:
+${recordsText}
+
+Appointments:
+${apptText}
+
+Write a simple health update message for this patient in ${selectedLanguage} that covers:
+1. A warm greeting using their name
+2. How their health looks overall (good/needs attention)
+3. One or two important things to watch (BP, sugar, etc) if needed
+4. Their next appointment if any
+5. One simple piece of advice (eat well, rest, take medicine on time)
+
+Respond ONLY with the message text in ${selectedLanguage} script. No JSON. No English. No headings.`;
+
+    try {
+      const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${import.meta.env.VITE_GROQ_API_KEY}`,
+        },
+        body: JSON.stringify({
+          model: "llama-3.3-70b-versatile",
+          messages: [{ role: "user", content: prompt }],
+          temperature: 0.5,
+        }),
+      });
+      const data = await res.json();
+      const text = data.choices[0].message.content.trim();
+      setHindiSummary(text);
+    } catch (err) {
+      setHindiSummary("सारांश उत्पन्न करने में विफल। कृपया पुनः प्रयास करें।");
+    }
+
+    setHindiLoading(false);
   }
 
   async function handleFileUpload(e) {
@@ -93,6 +183,24 @@ export default function PatientPortal() {
     const { data, error } = await supabase.storage.from("patient-documents").createSignedUrl(filePath, 60);
     if (error) { alert("Could not open file."); return; }
     window.open(data.signedUrl, "_blank");
+  }
+
+  async function deleteFile(doc) {
+    if (!window.confirm("Delete this document?")) return;
+
+    const { error: storageError } = await supabase.storage
+      .from("patient-documents")
+      .remove([doc.file_path]);
+
+    if (storageError) console.error("Storage error:", storageError);
+
+    const { error: dbError } = await supabase
+      .from("patient_uploads")
+      .delete()
+      .eq("id", doc.id);
+
+    if (dbError) { alert(dbError.message); return; }
+    loadPortalData();
   }
 
   async function runSymptomChecker() {
@@ -204,11 +312,12 @@ Respond with:
   };
 
   const tabs = [
-    { id: "health",    label: "Health Records" },
-    { id: "appts",     label: "Appointments" },
-    { id: "docs",      label: "Documents" },
-    { id: "ai",        label: "AI Checker" },
-    { id: "summary",   label: "AI Summary" },
+    { id: "health",   label: "Health Records" },
+    { id: "appts",    label: "Appointments" },
+    { id: "docs",     label: "Documents" },
+    { id: "mylang",   label: "🌐 मेरी भाषा" },
+    { id: "ai",       label: "AI Checker" },
+    { id: "summary",  label: "AI Summary" },
   ];
 
   if (loading) {
@@ -246,7 +355,7 @@ Respond with:
                 <p className="text-slate-400 text-xs mt-0.5">{patient.phone}</p>
               )}
             </div>
-            <div className="flex gap-2 text-xs font-medium">
+            <div className="flex gap-2 text-xs font-medium flex-wrap">
               <span className="px-3 py-1 rounded-full bg-blue-100 text-blue-700 border border-blue-200">
                 {records.length} Records
               </span>
@@ -353,7 +462,6 @@ Respond with:
             {/* ── Documents ── */}
             {activeTab === "docs" && (
               <div className="space-y-5">
-                {/* Upload section */}
                 <div className="bg-slate-50 rounded-xl border border-dashed border-slate-300 p-5 space-y-3">
                   <h2 className="text-sm font-semibold text-slate-700">Upload a Document</h2>
                   <p className="text-xs text-slate-400">PDF, JPEG, PNG, or WebP — max 10MB</p>
@@ -375,7 +483,6 @@ Respond with:
                   {uploading && <p className="text-xs text-blue-600 animate-pulse">Uploading...</p>}
                 </div>
 
-                {/* Uploaded files */}
                 <div className="space-y-2">
                   <h2 className="text-sm font-semibold text-slate-700 uppercase tracking-wide">Your Documents</h2>
                   {uploads.length === 0 ? (
@@ -395,16 +502,80 @@ Respond with:
                             </p>
                           </div>
                         </div>
-                        <button
-                          onClick={() => viewFile(doc.file_path)}
-                          className="shrink-0 text-sm px-3 py-1.5 rounded-lg bg-white border border-slate-200 hover:border-blue-400 hover:text-blue-600 text-slate-600 font-medium transition-colors cursor-pointer"
-                        >
-                          View
-                        </button>
+                        <div className="flex gap-2 shrink-0">
+                          <button
+                            onClick={() => viewFile(doc.file_path)}
+                            className="text-sm px-3 py-1.5 rounded-lg bg-white border border-slate-200 hover:border-blue-400 hover:text-blue-600 text-slate-600 font-medium transition-colors cursor-pointer"
+                          >
+                            View
+                          </button>
+                          <button
+                            onClick={() => deleteFile(doc)}
+                            className="text-sm px-3 py-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 font-medium transition-colors cursor-pointer"
+                          >
+                            Delete
+                          </button>
+                        </div>
                       </div>
                     ))
                   )}
                 </div>
+              </div>
+            )}
+
+            {/* ── Agent 2 — Multilingual Summary ── */}
+            {activeTab === "mylang" && (
+              <div className="space-y-5 max-w-2xl">
+                <div>
+                  <h2 className="text-sm font-semibold text-slate-700 mb-1">अपनी भाषा में स्वास्थ्य जानकारी</h2>
+                  <p className="text-xs text-slate-400">Get your health summary in your local language- simple words, no medical jargon.</p>
+                </div>
+
+                {/* Language selector */}
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">अपनी भाषा चुनें / Choose your language</label>
+                  <select
+                    value={selectedLanguage}
+                    onChange={(e) => {
+                      setSelectedLanguage(e.target.value);
+                      setHindiSummary(null);
+                    }}
+                    className="w-full px-4 py-2.5 rounded-lg border border-slate-200 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition bg-white"
+                  >
+                    {LANGUAGES.map(lang => (
+                      <option key={lang.code} value={lang.code}>{lang.label}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <button
+                  onClick={runAgent2}
+                  disabled={hindiLoading}
+                  className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white text-sm font-medium rounded-lg transition-colors cursor-pointer"
+                >
+                  {hindiLoading ? "generating..." : "🌐 Generate in " + (LANGUAGES.find(l => l.code === selectedLanguage)?.label || "Hindi")}
+                </button>
+
+                {/* Summary output */}
+                {hindiSummary && (
+                  <div className="bg-gradient-to-br from-blue-50 to-slate-50 rounded-xl border border-blue-100 p-6">
+                    <div className="flex items-center gap-2 mb-4">
+                      <span className="text-lg">🏥</span>
+                      <p className="text-xs font-semibold text-blue-600 uppercase tracking-wide">
+                        {LANGUAGES.find(l => l.code === selectedLanguage)?.label} — Health Update
+                      </p>
+                    </div>
+                    <p className="text-base text-slate-800 leading-relaxed whitespace-pre-line">
+                      {hindiSummary}
+                    </p>
+                    <button
+                      onClick={() => setHindiSummary(null)}
+                      className="mt-4 text-xs text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
+                    >
+                      Regenerate ↺
+                    </button>
+                  </div>
+                )}
               </div>
             )}
 
@@ -520,7 +691,6 @@ Respond with:
 
           </div>
         </div>
-
       </div>
     </div>
   );

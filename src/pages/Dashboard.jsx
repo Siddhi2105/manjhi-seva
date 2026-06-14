@@ -171,6 +171,11 @@ export default function Dashboard({ role }) {
                 AI Symptom Checker
               </button>
             </Link>
+            <Link to="/appointment-router">
+              <button className="px-4 py-2 bg-blue-800 hover:bg-blue-900 text-white text-sm font-medium rounded-lg shadow-sm transition-colors cursor-pointer">
+                🤖 AI Router
+              </button>
+            </Link>
           </div>
         </div>
       )}
