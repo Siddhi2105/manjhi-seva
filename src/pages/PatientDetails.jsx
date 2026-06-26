@@ -1,4 +1,4 @@
-import generatePatientPDF from "../utils/generatePatientPDF";
+import generatePatientPDF from "../utils/generatePatientPdf";
 import { Link, useParams, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { supabase } from "../supabaseClient";
