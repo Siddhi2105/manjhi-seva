@@ -1,4 +1,4 @@
-# 🏥 Manjhi Seva
+#  Manjhi Seva
 
 > **An AI-Powered Rural Healthcare ERP designed to digitize hospital operations and improve healthcare accessibility in underserved communities.**
 
