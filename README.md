@@ -1,4 +1,4 @@
-# 🏥 Manjhi Seva — AI-Powered Rural Healthcare ERP
+# 🏥 Manjhi Seva- AI Powered Rural Healthcare ERP
 
 > Bridging the healthcare gap in rural India through intelligent hospital management.
 
