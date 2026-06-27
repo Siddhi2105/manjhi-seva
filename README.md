@@ -1,4 +1,4 @@
-#  Manjhi Seva
+# 🏥 Manjhi Seva
 
 > **An AI-Powered Rural Healthcare ERP designed to digitize hospital operations and improve healthcare accessibility in underserved communities.**
 
@@ -19,9 +19,9 @@
 
 ## Overview
 
-Manjhi Seva is a full-stack **Healthcare ERP platform** built to modernize hospital operations in rural and underserved communities. The platform streamlines patient management, appointments, electronic health records, and administrative workflows while integrating AI-powered clinical assistance to support healthcare professionals.
+Manjhi Seva is a full-stack Healthcare ERP platform built to modernize hospital operations in rural and underserved communities. It combines hospital management workflows with AI-powered clinical assistance, enabling healthcare professionals to efficiently manage patients, appointments, electronic health records, and administrative operations through a unified web platform.
 
-Designed with scalability, accessibility, and real-time collaboration in mind, the system enables hospitals with limited digital infrastructure to efficiently manage day-to-day operations through a unified web platform.
+Designed with scalability, accessibility, and real-time collaboration in mind, the platform helps healthcare centers with limited digital infrastructure deliver more efficient and organized patient care.
 
 ---
 
@@ -29,13 +29,15 @@ Designed with scalability, accessibility, and real-time collaboration in mind, t
 
 ### Multi-Role Access Control
 
-The platform provides dedicated dashboards with secure role-based permissions for:
+Dedicated dashboards with secure role-based access for:
 
-* **Administrator** — System management, staff and doctor administration
-* **Doctor** — Patient records, appointments, AI-assisted medical summaries
-* **Staff / Nurse** — Patient registration, health record management, alerts
-* **Receptionist** — Appointment scheduling and patient onboarding
-* **Patient** — View medical records, appointments, and AI symptom checker
+* Administrator
+* Doctor
+* Staff / Nurse
+* Receptionist
+* Patient
+
+Each role has access only to the resources relevant to its responsibilities.
 
 ---
 
@@ -47,16 +49,16 @@ Automatically analyzes patient symptoms and routes appointments to the appropria
 
 #### AI Symptom Checker
 
-Provides structured clinical insights including:
+Provides structured medical insights including:
 
 * Risk Level
-* Suggested Department
+* Recommended Department
 * Possible Medical Conditions
 * Clinical Notes
 
 #### AI Medical Summary Generator
 
-Automatically generates concise discharge summaries and patient reports from recorded medical history.
+Automatically generates discharge summaries and patient reports from recorded health data.
 
 ---
 
@@ -84,7 +86,7 @@ Automatically generates concise discharge summaries and patient reports from rec
 * Secure File Storage
 * AI-assisted Clinical Workflows
 * PDF Report Generation
-* Responsive Design for Desktop & Mobile
+* Responsive Design for Desktop and Mobile
 
 ---
 
@@ -110,8 +112,8 @@ Automatically generates concise discharge summaries and patient reports from rec
                AI Service (Groq)
                        │
                        ▼
-     Appointment Routing • Symptom Analysis
-            • Medical Summary Generation
+ Appointment Routing • Symptom Analysis
+      • Medical Summary Generation
 ```
 
 ---
@@ -162,15 +164,7 @@ src/
 
 ---
 
-## Getting Started
-
-### Prerequisites
-
-* Node.js v18+
-* Supabase Project
-* Groq API Key
-
----
+## Installation
 
 ### Clone the Repository
 
@@ -180,35 +174,19 @@ git clone https://github.com/Siddhi2105/manjhi-seva.git
 cd manjhi-seva
 ```
 
----
-
 ### Install Dependencies
 
 ```bash
 npm install
 ```
 
----
-
-### Configure Environment Variables
-
-Create a `.env` file in the project root.
-
-```env
-VITE_SUPABASE_URL=your_supabase_url
-
-VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
-
-VITE_GROQ_API_KEY=your_groq_api_key
-```
-
----
-
 ### Run the Application
 
 ```bash
 npm run dev
 ```
+
+> **Note:** Before running the application, configure the required environment variables and connect the project to your own Supabase instance and AI service credentials.
 
 ---
 
@@ -227,13 +205,13 @@ AI Appointment Routing
 Doctor Consultation
         │
         ▼
-Health Record Creation
+Electronic Health Record
         │
         ▼
 AI Medical Summary
         │
         ▼
-Discharge Report (PDF)
+PDF Discharge Report
 ```
 
 ---
